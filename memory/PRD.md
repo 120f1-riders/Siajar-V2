@@ -9,3 +9,10 @@ Preview-only scaffolding: /app/frontend/package.json (runs next dev on 3000), /a
 - Fixed missing mockDraft in lib/ai.ts; removed dead half-built bulk code.
 ## Backlog
 - Edit options/kunci inside draft review; regenerate single draft; split paket-editor.tsx.
+
+## Jun 2026 – AI keys
+- AI now: Gemini primary (GEMINI_API_KEY, model GEMINI_MODEL default gemini-3.1-flash-lite), Claude fallback (ANTHROPIC_API_KEY, ANTHROPIC_MODEL default claude-haiku-5-5, x-api-key header). Keys stored via platform secrets (env), not in code.
+- Fixed Anthropic base double /v1 bug; env keys override DB-saved key.
+- gemini-3.8-flash hangs >60s (high demand) so lite used by default. Claude key valid but account has no credit.
+- Restored typescript ^5 (next dev had auto-installed TS 7 which breaks next.config.ts).
+- Fonts: dokumen (cetak HTML, DOCX, XLSX) teks Indonesia Arial 12pt, teks Arab Traditional Arabic 18pt (DOCX: run terpisah + RTL/bidi; HTML: @font-face "Arab Soal" unicode-range + size-adjust 150%; XLSX: sel berisi Arab → Traditional Arabic 18). Kop/judul tetap ukuran semula.

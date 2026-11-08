@@ -23,7 +23,50 @@ export type ExportData = {
 };
 
 const FONT = "Arial";
-const SIZE = 21;
+const SIZE = 24;
+const FONT_ARAB = "Traditional Arabic";
+const SIZE_ARAB = 36;
+const ARAB = "\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF";
+const ARAB_SEGMENT = new RegExp(`([${ARAB}](?:[${ARAB}\\s\\d.,:;!?()\\-]*[${ARAB}])?)`, "g");
+const ARAB_CHAR = new RegExp(`[${ARAB}]`);
+const ARAB_COUNT = new RegExp(`[${ARAB}]`, "g");
+
+type RunOpts = { bold?: boolean; italics?: boolean; size?: number; color?: string };
+
+// Pecah teks: bagian Arab pakai Traditional Arabic 18, sisanya Arial
+function runs(value: string, opts: RunOpts = {}): TextRun[] {
+  return value
+    .split(ARAB_SEGMENT)
+    .filter((part) => part !== "")
+    .map((part) =>
+      ARAB_CHAR.test(part)
+        ? new TextRun({
+            text: part,
+            bold: opts.bold,
+            italics: opts.italics,
+            color: opts.color,
+            font: { ascii: FONT_ARAB, hAnsi: FONT_ARAB, cs: FONT_ARAB, eastAsia: FONT_ARAB },
+            size: SIZE_ARAB,
+            sizeComplexScript: SIZE_ARAB,
+            rightToLeft: true,
+          })
+        : new TextRun({
+            text: part,
+            bold: opts.bold,
+            italics: opts.italics,
+            color: opts.color,
+            font: FONT,
+            size: opts.size ?? SIZE,
+            sizeComplexScript: opts.size ?? SIZE,
+          })
+    );
+}
+
+function mostlyArabic(value: string): boolean {
+  const arab = (value.match(ARAB_COUNT) ?? []).length;
+  const letters = (value.match(/[A-Za-z]/g) ?? []).length;
+  return arab > 0 && arab >= letters;
+}
 const ALIGN = {
   left: AlignmentType.LEFT,
   center: AlignmentType.CENTER,
@@ -47,6 +90,7 @@ function paragraph(
 ): Paragraph {
   return new Paragraph({
     alignment: opts.align ? ALIGN[opts.align] : undefined,
+    bidirectional: mostlyArabic(value),
     spacing: {
       after: opts.spacingAfter ?? 60,
       before: opts.spacingBefore ?? 0,
@@ -62,24 +106,16 @@ function paragraph(
           },
         }
       : undefined,
-    children: [
-      new TextRun({
-        text: value,
-        bold: opts.bold,
-        italics: opts.italics,
-        size: opts.size ?? SIZE,
-        font: FONT,
-        color: opts.color,
-      }),
-    ],
+    children: runs(value, opts),
   });
 }
 
 function lineParagraph(value: string, indent: number, bold = false): Paragraph {
   return new Paragraph({
     spacing: { after: 45 },
-    indent: { left: indent },
-    children: [new TextRun({ text: value, bold, font: FONT, size: SIZE })],
+    indent: mostlyArabic(value) ? { right: indent } : { left: indent },
+    bidirectional: mostlyArabic(value),
+    children: runs(value, { bold }),
   });
 }
 
@@ -154,10 +190,10 @@ function metaTable(rows: [string, string][]): Table {
             new TableCell({
               width: { size: 28, type: WidthType.PERCENTAGE },
               shading: { fill: "F2F2F2", type: ShadingType.CLEAR, color: "auto" },
-              children: [paragraph(label, { bold: true, size: 19 })],
+              children: [paragraph(label, { bold: true, size: SIZE })],
             }),
             new TableCell({
-              children: [paragraph(value || "-", { size: 19 })],
+              children: [paragraph(value || "-", { size: SIZE })],
             }),
           ],
         })
@@ -172,6 +208,7 @@ function soalBlock(item: Butir): Paragraph[] {
     new Paragraph({
       spacing: { before: 100, after: 40 },
       indent: { left: 360, hanging: 360 },
+      bidirectional: mostlyArabic(soalLines[0] ?? ""),
       children: [
         new TextRun({
           text: `${item.nomor}. `,
@@ -179,7 +216,7 @@ function soalBlock(item: Butir): Paragraph[] {
           font: FONT,
           size: SIZE,
         }),
-        new TextRun({ text: soalLines[0] ?? "", font: FONT, size: SIZE }),
+        ...runs(soalLines[0] ?? ""),
       ],
     })
   );
@@ -224,7 +261,7 @@ export async function buildNaskahDocx({
   );
   children.push(
     paragraph(`Tahun Pelajaran ${paket.tahun_ajaran}`, {
-      size: 19,
+      size: SIZE,
       align: "center",
       spacingAfter: 160,
     })
@@ -244,12 +281,12 @@ export async function buildNaskahDocx({
     children.push(
       paragraph("Petunjuk Umum", {
         bold: true,
-        size: 19,
+        size: SIZE,
         spacingBefore: 160,
       })
     );
     for (const line of paket.petunjuk.split(/\r?\n/)) {
-      children.push(paragraph(line, { size: 19 }));
+      children.push(paragraph(line, { size: SIZE }));
     }
   }
 
@@ -289,7 +326,7 @@ export async function buildNaskahDocx({
           (label) =>
             new TableCell({
               shading: { fill: "E8E8E8", type: ShadingType.CLEAR, color: "auto" },
-              children: [paragraph(label, { bold: true, size: 19 })],
+              children: [paragraph(label, { bold: true, size: SIZE })],
             })
         ),
       }),
@@ -297,10 +334,10 @@ export async function buildNaskahDocx({
         (item) =>
           new TableRow({
             children: [
-              paragraph(String(item.nomor), { size: 19 }),
-              paragraph(bentukInfo(item.bentuk).singkat, { size: 19 }),
-              paragraph(item.kunci || "-", { size: 19 }),
-              paragraph(String(item.skor), { size: 19 }),
+              paragraph(String(item.nomor), { size: SIZE }),
+              paragraph(bentukInfo(item.bentuk).singkat, { size: SIZE }),
+              paragraph(item.kunci || "-", { size: SIZE }),
+              paragraph(String(item.skor), { size: SIZE }),
             ].map((cell) => new TableCell({ children: [cell] })),
           })
       ),
@@ -324,7 +361,7 @@ export async function buildNaskahDocx({
 
   const doc = new Document({
     styles: {
-      default: { document: { run: { font: FONT, size: SIZE } } },
+      default: { document: { run: { font: FONT, size: SIZE, sizeComplexScript: SIZE_ARAB } } },
     },
     sections: [
       {
@@ -406,7 +443,7 @@ export async function buildKartuDocx({
     }
     children.push(
       paragraph(`Skor butir: ${item.skor} dari total ${total} skor.`, {
-        size: 18,
+        size: SIZE,
         italics: true,
       })
     );
@@ -414,7 +451,7 @@ export async function buildKartuDocx({
 
   const doc = new Document({
     styles: {
-      default: { document: { run: { font: FONT, size: SIZE } } },
+      default: { document: { run: { font: FONT, size: SIZE, sizeComplexScript: SIZE_ARAB } } },
     },
     sections: [
       {

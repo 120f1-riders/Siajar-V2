@@ -25,8 +25,10 @@ export default async function IntegrasiPage({
     .trim();
 
   const view: IntegrationView = {
-    aiKeySet: Boolean(integrations.ai_api_key || process.env.ZAI_API_KEY),
-    aiKeyFromEnv: !integrations.ai_api_key && Boolean(process.env.ZAI_API_KEY),
+    aiKeySet: Boolean(
+      integrations.ai_api_key || process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY
+    ),
+    aiKeyFromEnv: Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY),
     aiApiBase: integrations.ai_api_base,
     aiModel: integrations.ai_model,
     googleClientId: integrations.google_client_id,

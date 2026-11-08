@@ -71,7 +71,7 @@ export function IntegrationForm({ view }: { view: IntegrationView }) {
                 placeholder={
                   view.aiKeySet
                     ? view.aiKeyFromEnv
-                      ? "Sudah aktif dari .env.local — isi untuk menggantinya"
+                      ? "Aktif dari environment: Gemini utama, Claude cadangan"
                       : "Sudah tersimpan — kosongkan bila tidak diganti"
                     : "Isi kunci API, contoh dari Z.ai"
                 }

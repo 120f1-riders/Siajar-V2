@@ -94,10 +94,10 @@ export default async function NaskahSoalPage({
 
           {paket.petunjuk ? (
             <div className="mb-4">
-              <p className="font-bold uppercase tracking-wide" style={{ fontSize: "10pt" }}>
+              <p className="font-bold uppercase tracking-wide">
                 Petunjuk Umum
               </p>
-              <div className="whitespace-pre-line" style={{ fontSize: "10pt" }}>
+              <div className="whitespace-pre-line">
                 {paket.petunjuk}
               </div>
             </div>
@@ -110,7 +110,7 @@ export default async function NaskahSoalPage({
           ) : (
             kelompok.map((grup) => (
               <section key={grup.kunci} className="mb-4">
-                <h3 className="mb-2 font-bold" style={{ fontSize: "11pt" }}>
+                <h3 className="mb-2 font-bold">
                   {grup.label}
                 </h3>
                 {grup.butir.map((item) => (
@@ -121,7 +121,7 @@ export default async function NaskahSoalPage({
           )}
 
           {butir.length > 0 ? (
-            <p className="mt-8 text-center italic" style={{ fontSize: "10pt" }}>
+            <p className="mt-8 text-center italic">
               — Selamat mengerjakan —
             </p>
           ) : null}

@@ -29,13 +29,13 @@ export function SoalTeks({
             {opsi.map((item, index) => (
               <div key={index} className="opsi-item">
                 <span className="opsi-label">{HURUF_OPSI[index]}.</span>
-                <span>{item}</span>
+                <span dir="auto">{item}</span>
               </div>
             ))}
           </div>
         ) : null}
         {bentuk.id === "pgk" ? (
-          <div className="mt-0.5 italic" style={{ fontSize: "9pt" }}>
+          <div className="mt-0.5 italic">
             (Pilih lebih dari satu jawaban yang benar)
           </div>
         ) : null}

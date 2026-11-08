@@ -1,5 +1,5 @@
 import "server-only";
-import { getAiConfig } from "./integrations";
+import { getAiConfig, getGeminiConfig } from "./integrations";
 
 export type AiButirInput = {
   mapel: string;
@@ -22,7 +22,7 @@ export type AiButirDraft = {
 };
 
 export function aiConfigured(): boolean {
-  return Boolean(getAiConfig().apiKey);
+  return Boolean(getGeminiConfig().apiKey || getAiConfig().apiKey);
 }
 
 const SYSTEM_PROMPT = `Anda adalah guru mata pelajaran di madrasah di Indonesia yang biasa menyusun soal asesmen. Tugas Anda membuat draf satu butir soal dari data yang diberikan guru.
@@ -42,15 +42,74 @@ Gaya penulisan yang wajib diikuti:
 Balas HANYA dengan satu objek JSON valid, tanpa penjelasan dan tanpa blok kode:
 {"level":"C2","indikator":"...","soal":"...","opsi":["..."],"kunci":"..."}`;
 
-// Antropic messages API
+// Gemini utama, Claude cadangan
 export async function callAi(
   system: string,
   user: string,
   maxTokens: number,
   timeoutMs: number
 ): Promise<string> {
+  const gemini = getGeminiConfig();
+  const claude = getAiConfig();
+  if (!gemini.apiKey && !claude.apiKey) throw new Error("MISSING_AI_KEY");
+  if (gemini.apiKey) {
+    try {
+      return await callGemini(system, user, maxTokens, timeoutMs);
+    } catch (err) {
+      if (!claude.apiKey) throw err;
+      console.error("Gemini gagal, beralih ke Claude:", (err as Error).message.slice(0, 200));
+    }
+  }
+  return callClaude(system, user, maxTokens, timeoutMs);
+}
+
+async function callGemini(
+  system: string,
+  user: string,
+  maxTokens: number,
+  timeoutMs: number
+): Promise<string> {
+  const config = getGeminiConfig();
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:generateContent`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": config.apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: user }] }],
+        generationConfig: {
+          temperature: 0.85,
+          maxOutputTokens: maxTokens * 4,
+          responseMimeType: "application/json",
+        },
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
+    }
+  );
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`GEMINI_HTTP_${res.status}${detail ? ": " + detail.slice(0, 300) : ""}`);
+  }
+  const data = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+  };
+  const text = (data.candidates?.[0]?.content?.parts ?? [])
+    .filter((p) => !p.thought)
+    .map((p) => p.text ?? "")
+    .join("");
+  if (!text.trim()) throw new Error("AI_EMPTY");
+  return text;
+}
+
+async function callClaude(
+  system: string,
+  user: string,
+  maxTokens: number,
+  timeoutMs: number
+): Promise<string> {
   const config = getAiConfig();
-  if (!config.apiKey) throw new Error("MISSING_AI_KEY");
   const base = config.base.replace(/\/$/, "");
 
   const controller = new AbortController();
@@ -60,7 +119,7 @@ export async function callAi(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${config.apiKey}`,
+        "x-api-key": config.apiKey,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({

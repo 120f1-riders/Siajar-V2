@@ -76,14 +76,25 @@ export function saveIntegrations(values: Partial<Integrations>) {
 }
 
 export function getAiConfig() {
+  if (process.env.ANTHROPIC_API_KEY) {
+    return {
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      base: process.env.ANTHROPIC_API_BASE || "https://api.anthropic.com",
+      model: process.env.ANTHROPIC_MODEL || "claude-haiku-5-5",
+    };
+  }
   const row = getIntegrations();
   return {
-    apiKey: row.ai_api_key || process.env.ANTHROPIC_API_KEY || "",
-    base:
-      row.ai_api_base ||
-      process.env.ANTHROPIC_API_BASE ||
-      "https://api.anthropic.com/v1",
-    model: row.ai_model || process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001",
+    apiKey: row.ai_api_key,
+    base: (row.ai_api_base || "https://api.anthropic.com").replace(/\/v1\/?$/, ""),
+    model: row.ai_model || "claude-haiku-5-5",
+  };
+}
+
+export function getGeminiConfig() {
+  return {
+    apiKey: process.env.GEMINI_API_KEY || "",
+    model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
   };
 }
 

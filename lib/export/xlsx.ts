@@ -10,6 +10,14 @@ const BORDER = {
   right: { style: "thin" as const, color: { argb: "FFBFBFBF" } },
 };
 
+const ARAB = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+function bodyFont(value: unknown): Partial<ExcelJS.Font> {
+  return ARAB.test(String(value ?? ""))
+    ? { name: "Traditional Arabic", size: 18 }
+    : { name: "Arial", size: 12 };
+}
+
 export async function buildKisiXlsx({
   paket,
   butir,
@@ -52,12 +60,12 @@ export async function buildKisiXlsx({
 
   sheet.mergeCells("A1:H1");
   sheet.getCell("A1").value = "KISI-KISI SOAL";
-  sheet.getCell("A1").font = { bold: true, size: 15 };
+  sheet.getCell("A1").font = { name: "Arial", bold: true, size: 15 };
   sheet.getCell("A1").alignment = { horizontal: "center" };
 
   sheet.mergeCells("A2:H2");
   sheet.getCell("A2").value = `${paket.jenis_penilaian} · ${paket.mapel} · Kelas ${paket.kelas} · ${paket.tahun_ajaran}`;
-  sheet.getCell("A2").font = { size: 11 };
+  sheet.getCell("A2").font = { name: "Arial", size: 12 };
   sheet.getCell("A2").alignment = { horizontal: "center" };
 
   sheet.mergeCells("A3:D3");
@@ -77,7 +85,7 @@ export async function buildKisiXlsx({
 
   for (let row = 3; row <= 5; row += 1) {
     for (let col = 1; col <= 8; col += 1) {
-      sheet.getCell(row, col).font = { size: 10 };
+      sheet.getCell(row, col).font = { name: "Arial", size: 12 };
     }
   }
 
@@ -95,7 +103,7 @@ export async function buildKisiXlsx({
   headers.forEach((label, index) => {
     const cell = headerRow.getCell(index + 1);
     cell.value = label;
-    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 10 };
+    cell.font = { name: "Arial", bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
     cell.fill = {
       type: "pattern",
       pattern: "solid",
@@ -124,7 +132,7 @@ export async function buildKisiXlsx({
     ];
     for (let col = 1; col <= 8; col += 1) {
       const cell = row.getCell(col);
-      cell.font = { size: 9 };
+      cell.font = bodyFont(cell.value);
       cell.alignment = {
         vertical: "top",
         wrapText: true,
