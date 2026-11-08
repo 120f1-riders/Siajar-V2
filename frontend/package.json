@@ -1,0 +1,7 @@
+{
+  "name": "siajar-preview",
+  "private": true,
+  "scripts": {
+    "start": "cd /app && SERVER_ACTIONS_ALLOWED_ORIGINS='**.preview.emergentcf.cloud,**.preview.emergentagent.com' npx next dev -H 0.0.0.0 -p 3000"
+  }
+}

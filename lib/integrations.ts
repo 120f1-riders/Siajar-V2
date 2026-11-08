@@ -78,12 +78,12 @@ export function saveIntegrations(values: Partial<Integrations>) {
 export function getAiConfig() {
   const row = getIntegrations();
   return {
-    apiKey: row.ai_api_key || process.env.ZAI_API_KEY || "",
+    apiKey: row.ai_api_key || process.env.ANTHROPIC_API_KEY || "",
     base:
       row.ai_api_base ||
-      process.env.ZAI_API_BASE ||
-      "https://api.z.ai/api/paas/v4",
-    model: row.ai_model || process.env.ZAI_MODEL || "glm-5.3-flash",
+      process.env.ANTHROPIC_API_BASE ||
+      "https://api.anthropic.com/v1",
+    model: row.ai_model || process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001",
   };
 }
 

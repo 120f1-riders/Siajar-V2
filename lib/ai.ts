@@ -42,6 +42,56 @@ Gaya penulisan yang wajib diikuti:
 Balas HANYA dengan satu objek JSON valid, tanpa penjelasan dan tanpa blok kode:
 {"level":"C2","indikator":"...","soal":"...","opsi":["..."],"kunci":"..."}`;
 
+// Antropic messages API
+export async function callAi(
+  system: string,
+  user: string,
+  maxTokens: number,
+  timeoutMs: number
+): Promise<string> {
+  const config = getAiConfig();
+  if (!config.apiKey) throw new Error("MISSING_AI_KEY");
+  const base = config.base.replace(/\/$/, "");
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${base}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: config.model,
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: "user", content: [{ type: "text", text: user }] }],
+        temperature: 0.85,
+      }),
+      signal: controller.signal,
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`AI_HTTP_${res.status}${detail ? ": " + detail.slice(0, 300) : ""}`);
+    }
+
+    const data = (await res.json()) as {
+      content?: { type?: string; text?: string }[];
+    };
+    const blocks = data.content ?? [];
+    const textBlock = blocks.find((b) => b.type === "text");
+    const content = textBlock?.text;
+    if (typeof content !== "string" || !content.trim()) throw new Error("AI_EMPTY");
+    return content;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const BENTUK_LABEL: Record<string, string> = {
   pg: "Pilihan Ganda",
   pgk: "Pilihan Ganda Kompleks",
@@ -158,60 +208,105 @@ function normalizeDraft(
   return { level, indikator, soal, opsi, kunci };
 }
 
+function mockDraft(input: { bentuk: string; level: string; materi: string; acuan: string }): AiButirDraft {
+  const topik = input.materi || input.acuan || "materi";
+  const pakaiOpsi = input.bentuk === "pg" || input.bentuk === "pgk";
+  return {
+    level: input.level,
+    indikator: `Peserta didik dapat menjelaskan konsep ${topik}.`,
+    soal: `Contoh soal tentang ${topik} (${Math.random().toString(36).slice(2, 7)}).`,
+    opsi: pakaiOpsi ? ["Pilihan pertama", "Pilihan kedua", "Pilihan ketiga", "Pilihan keempat"] : [],
+    kunci: pakaiOpsi ? "A" : input.bentuk === "bs" ? "Benar" : "Contoh kunci jawaban",
+  };
+}
+
 export async function generateButirDraft(
   input: AiButirInput
 ): Promise<AiButirDraft> {
+  if (process.env.AI_USE_MOCK === "true") return mockDraft(input);
+  const content = await callAi(SYSTEM_PROMPT, buildUserPrompt(input), 1200, 55000);
+  return normalizeDraft(extractJson(content), input.bentuk, input.level);
+}
+
+export type AiBatchInput = {
+  mapel: string;
+  kelas: string;
+  kurikulum: string;
+  jenisPenilaian: string;
+  materi: string;
+  acuan: string;
+  items: { bentuk: string; level: string }[];
+  hindari: string[];
+};
+
+export type AiBatchDraft = AiButirDraft & { bentuk: string };
+
+const BATCH_SYSTEM_PROMPT = SYSTEM_PROMPT.replace(
+  "membuat draf satu butir soal",
+  "membuat beberapa butir soal sekaligus"
+).replace(
+  /Balas HANYA[\s\S]*$/,
+  `- Setiap butir harus menguji aspek atau sub-materi yang berbeda. Jangan mengulang pertanyaan, konteks, atau jawaban yang sama.
+
+Balas HANYA dengan satu objek JSON valid, tanpa penjelasan dan tanpa blok kode. Urutan butir harus sama dengan urutan permintaan:
+{"butir":[{"level":"C2","indikator":"...","soal":"...","opsi":["..."],"kunci":"..."}]}`
+);
+
+function buildBatchPrompt(input: AiBatchInput): string {
+  const kurikulum =
+    input.kurikulum === "kbc" ? "Kurikulum Berbasis Cinta" : "Kurikulum Merdeka";
+  const lines = [
+    `Mata pelajaran: ${input.mapel}`,
+    `Kelas: ${input.kelas || "-"}`,
+    `Kurikulum: ${kurikulum}`,
+    `Jenis penilaian: ${input.jenisPenilaian || "Asesmen Sumatif"}`,
+    `Materi: ${input.materi || "-"}`,
+    `Capaian pembelajaran / nilai cinta: ${input.acuan || "-"}`,
+    "",
+    `Buat tepat ${input.items.length} butir soal dengan urutan berikut:`,
+  ];
+  input.items.forEach((item, i) => {
+    lines.push(
+      `${i + 1}. ${BENTUK_LABEL[item.bentuk] ?? "Pilihan Ganda"}, level ${item.level}. ${petunjukBentuk(item.bentuk)}`
+    );
+  });
+  if (input.hindari.length) {
+    lines.push("", "Soal berikut sudah dibuat sebelumnya, jangan diulang atau dibuat mirip:");
+    input.hindari.forEach((h) => lines.push(`- ${h}`));
+  }
+  return lines.join("\n");
+}
+
+export async function generateButirBatch(input: AiBatchInput): Promise<AiBatchDraft[]> {
   if (process.env.AI_USE_MOCK === "true") {
-    return mockDraft(input);
+    return input.items.map((item) => ({
+      ...mockDraft({ ...item, materi: input.materi, acuan: input.acuan }),
+      bentuk: item.bentuk,
+    }));
   }
 
-  const config = getAiConfig();
-  const apiKey = config.apiKey;
-  if (!apiKey) throw new Error("MISSING_AI_KEY");
+  const content = await callAi(
+    BATCH_SYSTEM_PROMPT,
+    buildBatchPrompt(input),
+    Math.min(8000, 1100 * input.items.length + 400),
+    110000
+  );
+  const raw = extractJson(content);
+  const list = Array.isArray(raw.butir) ? raw.butir : [];
 
-  const base = config.base.replace(/\/+$/, "");
-  const model = config.model;
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 55000);
-
-  try {
-    const res = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: buildUserPrompt(input) },
-        ],
-        temperature: 0.85,
-        top_p: 0.95,
-        max_tokens: 1200,
-        stream: false,
-      }),
-      signal: controller.signal,
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      throw new Error(`AI_HTTP_${res.status}${detail ? ": " + detail.slice(0, 300) : ""}`);
+  const hasil: AiBatchDraft[] = [];
+  input.items.forEach((item, i) => {
+    const entry = list[i];
+    if (!entry || typeof entry !== "object") return;
+    try {
+      hasil.push({
+        ...normalizeDraft(entry as Record<string, unknown>, item.bentuk, item.level),
+        bentuk: item.bentuk,
+      });
+    } catch {
+      // butir yang tidak lengkap dilewati
     }
-
-    const data = (await res.json()) as {
-      choices?: { message?: { content?: unknown } }[];
-    };
-    const content = data.choices?.[0]?.message?.content;
-    if (typeof content !== "string" || !content.trim()) {
-      throw new Error("AI_EMPTY");
-    }
-
-    return normalizeDraft(extractJson(content), input.bentuk, input.level);
-  } finally {
-    clearTimeout(timer);
-  }
+  });
+  if (hasil.length === 0) throw new Error("AI_INCOMPLETE");
+  return hasil;
 }

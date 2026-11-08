@@ -119,7 +119,13 @@ export function isSameOrigin(req: Request): boolean {
   const origin = req.headers.get("origin");
   if (!origin) return true; // permintaan same-origin tanpa header (mis. non-browser)
   try {
-    return new URL(origin).host === new URL(req.url).host;
+    const host = new URL(origin).host;
+    if (host === new URL(req.url).host) return true;
+    if (host === req.headers.get("x-forwarded-host")) return true;
+    return (process.env.SERVER_ACTIONS_ALLOWED_ORIGINS ?? "")
+      .split(",")
+      .map((o) => o.trim().replace(/^\*+\./, "."))
+      .some((o) => o && (o.startsWith(".") ? host.endsWith(o) : host === o));
   } catch {
     return false;
   }

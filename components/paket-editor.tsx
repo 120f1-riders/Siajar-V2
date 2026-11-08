@@ -20,6 +20,7 @@ import {
 } from "@/lib/konstanta";
 import { statusInfo } from "@/lib/format";
 import { DriveExport } from "@/components/drive-export";
+import { AiGeneratorPanel } from "@/components/ai-generator-panel";
 
 export type EditorButir = {
   bentuk: string;
@@ -86,9 +87,7 @@ export function PaketEditor({
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [jumlahTambah, setJumlahTambah] = useState(5);
   const [aiLoading, setAiLoading] = useState<number | null>(null);
-  const [selectedForAi, setSelectedForAi] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState<{ tone: "ok" | "err"; text: string } | null>(
     null
   );
@@ -122,45 +121,12 @@ export function PaketEditor({
     setDirty(true);
   }
 
-  function tambahButir(jumlah = 1) {
-    const sisa = 200 - form.butir.length;
-    if (sisa <= 0) {
-      setMessage({ tone: "err", text: "Paket sudah mencapai batas 200 butir soal." });
-      return;
-    }
-
-    const n = Math.min(Math.max(1, Math.floor(jumlah) || 1), sisa);
-    setForm((prev) => ({
-      ...prev,
-      butir: [...prev.butir, ...Array.from({ length: n }, () => butirBaru())],
-    }));
-    setDirty(true);
-    setMessage(
-      n < jumlah
-        ? {
-            tone: "err",
-            text: `Hanya ${n} butir ditambahkan karena batas 200 butir per paket.`,
-          }
-        : null
-    );
-  }
-
   function hapusButir(index: number) {
     setForm((prev) => ({
       ...prev,
       butir: prev.butir.filter((_, i) => i !== index),
     }));
     setDirty(true);
-  }
-
-  function toggleAiSelection(index: number) {
-    setForm((prev) => prev);
-    setSelectedForAi((prev) => {
-      const next = new Set(prev);
-      if (next.has(index)) next.delete(index);
-      else next.add(index);
-      return next;
-    });
   }
 
   function geserButir(index: number, arah: -1 | 1) {
@@ -174,16 +140,16 @@ export function PaketEditor({
     setDirty(true);
   }
 
-  async function persist(): Promise<boolean> {
-    if (!form.mapel.trim()) {
+  async function persist(data: EditorPaket = form): Promise<boolean> {
+    if (!data.mapel.trim()) {
       setMessage({ tone: "err", text: "Pilih atau tulis mata pelajaran terlebih dahulu." });
       return false;
     }
-    if (!form.kelas.trim()) {
+    if (!data.kelas.trim()) {
       setMessage({ tone: "err", text: "Kelas wajib diisi." });
       return false;
     }
-    if (!form.tahun_ajaran.trim()) {
+    if (!data.tahun_ajaran.trim()) {
       setMessage({ tone: "err", text: "Tahun pelajaran wajib diisi." });
       return false;
     }
@@ -191,14 +157,14 @@ export function PaketEditor({
     setSaving(true);
     setMessage(null);
     try {
-      const res = await fetch(`/api/paket/${form.id}`, {
+      const res = await fetch(`/api/paket/${data.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(data),
       });
-      const data = await res.json().catch(() => ({}));
+      const hasil = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage({ tone: "err", text: data.error ?? "Gagal menyimpan paket." });
+        setMessage({ tone: "err", text: hasil.error ?? "Gagal menyimpan paket." });
         return false;
       }
       setDirty(false);
@@ -355,118 +321,21 @@ export function PaketEditor({
     }
   }
 
-  async function buatDenganAiBulk() {
-    if (!form.mapel.trim()) {
-      setMessage({ tone: "err", text: "Pilih mata pelajaran terlebih dahulu." });
-      return;
-    }
-    if (!form.kelas.trim()) {
-      setMessage({ tone: "err", text: "Isi kelas terlebih dahulu." });
-      return;
-    }
-
-    const dipilih = form.butir
-      .map((b, i) => ({ b, i }))
-      .filter(
-        ({ b }) =>
-          b.bentuk && BENTUK_SOAL[b.bentuk] && b.materi.trim()
-      );
-
-    if (dipilih.length === 0) {
-      setMessage({
-        tone: "err",
-        text: "Pilih minimal satu butir yang sudah ada materi, lalu tandai sebelum menggunakan Bantuan AI massal.",
-      });
-      return;
-    }
-
-    if (
-      dipilih.length > 1 &&
-      !window.confirm(
-        `Buat draf AI untuk ${dipilih.length} butir yang ditandai? Butir yang sudah ada isinya akan diganti.`
-      )
-    ) {
-      return;
-    }
-
-    setAiLoading(-1);
-    setMessage(null);
-
-    const items = dipilih.map(({ b }) => ({
-      bentuk: b.bentuk,
-      level: b.level,
-      materi: b.materi,
-      acuan: b.acuan,
-      indikator: b.indikator,
-    }));
-
-    try {
-      const res = await fetch("/api/ai/butir/bulk", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mapel: form.mapel,
-          kelas: form.kelas,
-          kurikulum: form.kurikulum,
-          jenis_penilaian: form.jenis_penilaian,
-          items,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setMessage({ tone: "err", text: data.error ?? "Gagal membuat draf soal." });
-        return;
-      }
-
-      const results: Array<{
-        index: number;
-        ok: boolean;
-        level?: string;
-        indikator?: string;
-        soal?: string;
-        opsi?: string[];
-        kunci?: string;
-        error?: string;
-      }> = Array.isArray(data.results)
-        ? data.results as Array<typeof results[number]>
-        : [];
-
-      let berhasil = 0;
-      for (const r of results) {
-        if (!r.ok) continue;
-        const opsi = Array.isArray(r.opsi)
-          ? r.opsi.map((item: unknown) => String(item ?? ""))
-          : [];
-        while (opsi.length < 5) opsi.push("");
-        const bernilai = (v: unknown, fallback: string) =>
-          typeof v === "string" ? v : fallback;
-
-        updateButir(r.index, {
-          level:
-            /^C[1-6]$/.test(bernilai(r.level, ""))
-              ? bernilai(r.level, form.butir[r.index]?.level ?? "C2")
-              : form.butir[r.index]?.level ?? "C2",
-          indikator: bernilai(r.indikator, form.butir[r.index]?.indikator ?? ""),
-          soal: bernilai(r.soal, form.butir[r.index]?.soal ?? ""),
-          opsi: opsi.slice(0, 5),
-          kunci: bernilai(r.kunci, form.butir[r.index]?.kunci ?? ""),
-        });
-        berhasil++;
-      }
-
+  async function simpanDariAi(baru: EditorButir[]): Promise<boolean> {
+    const next = { ...form, butir: [...form.butir, ...baru].slice(0, 200) };
+    setForm(next);
+    const ok = await persist(next);
+    if (ok) {
       setMessage({
         tone: "ok",
-        text: `Draf AI selesai: ${berhasil} butir dibuat, ${results.length - berhasil} gagal. Semua kolom tetap bisa diedit manual.`,
+        text: `${baru.length} soal dari AI disimpan ke paket. Semua butir masih bisa Anda edit di bawah.`,
       });
-    } catch {
-      setMessage({
-        tone: "err",
-        text: "Gagal menghubungi layanan AI. Periksa koneksi lalu coba lagi.",
-      });
-    } finally {
-      setAiLoading(null);
+    } else {
+      setDirty(true);
     }
+    return ok;
   }
+
 
   return (
     <div>
@@ -749,59 +618,27 @@ export function PaketEditor({
               indikator, soal, pilihan, dan kunci. Semua kolom tetap bisa diedit manual.
             </p>
           </div>
-          {!readonly ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">
-                  Jumlah soal
-                </span>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={jumlahTambah}
-                  onChange={(e) =>
-                    setJumlahTambah(Math.min(100, Math.max(1, Number(e.target.value) || 1)))
-                  }
-                  className="w-14 rounded-md border border-stone-200 px-1.5 py-1 text-center text-sm font-bold text-stone-800 focus:border-brand-500 focus:outline-none"
-                  aria-label="Jumlah butir yang akan ditambahkan"
-                />
-              </label>
-              <button
-                type="button"
-                onClick={() => tambahButir(jumlahTambah)}
-                className="btn btn-outline btn-sm"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
-                  <path d="M12 5v14M5 12h14" />
-                </svg>
-                Tambah {jumlahTambah} Butir
-              </button>
-
-            </div>
-          ) : null}
         </div>
       </section>
-      <p className="mt-2 text-xs text-stone-400">
-        Isi materi atau capaian pembelajaran sebagai dasar pembuatan soal di atas, lalu klik "Buatkan Semua Soal".
-      </p>
+      {!readonly ? (
+        <AiGeneratorPanel
+          mapel={form.mapel}
+          kelas={form.kelas}
+          kurikulum={form.kurikulum}
+          jenisPenilaian={form.jenis_penilaian}
+          acuanLabel={info.acuanLabel}
+          acuanPlaceholder={info.acuanPlaceholder}
+          sisaSlot={200 - form.butir.length}
+          onSave={simpanDariAi}
+        />
+      ) : null}
 
       {form.butir.length === 0 ? (
         <div className="card flex flex-col items-center py-10 text-center">
           <p className="text-sm font-semibold text-stone-700">Belum ada butir soal</p>
           <p className="mt-1 max-w-sm text-xs text-stone-500">
-            Tentukan jumlah soal di atas, lalu tambahkan sekaligus. Kisi-kisi serta kartu
-            soal akan dibuat otomatis dari data butir yang Anda isi.
+            Gunakan panel AI di atas untuk membuat soal, atau tambahkan butir kosong.
           </p>
-          {!readonly ? (
-            <button
-              type="button"
-              onClick={() => tambahButir(jumlahTambah)}
-              className="btn btn-primary btn-sm mt-4"
-            >
-              Tambah {jumlahTambah} Butir Kosong
-            </button>
-          ) : null}
         </div>
       ) : (
         <div className="space-y-3">
@@ -824,15 +661,6 @@ export function PaketEditor({
                   </span>
                   {!readonly ? (
                     <div className="flex items-center gap-1">
-                      <label className="flex items-center gap-1.5 text-xs text-stone-500">
-                        <input
-                          type="checkbox"
-                          checked={selectedForAi.has(index)}
-                          onChange={() => toggleAiSelection(index)}
-                          className="h-3.5 w-3.5 accent-brand-700"
-                        />
-                        AI
-                      </label>
                       <button
                         type="button"
                         onClick={() => buatDenganAi(index)}
@@ -1035,13 +863,6 @@ export function PaketEditor({
 
       {!readonly ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => tambahButir(jumlahTambah)}
-            className="btn btn-outline"
-          >
-            Tambah {jumlahTambah} Butir
-          </button>
           <button
             type="button"
             onClick={() => persist()}
