@@ -206,17 +206,26 @@ async function init(client: Client, local: boolean) {
 }
 
 function createDb(): Db {
-  let url = process.env.TURSO_DATABASE_URL;
-  const local = !url;
-  if (!url) {
-    if (process.env.VERCEL) {
-      throw new Error("TURSO_DATABASE_URL belum diatur di Environment Variables Vercel.");
+  const url = process.env.TURSO_DATABASE_URL;
+
+  if (process.env.VERCEL) {
+    if (!url) {
+      throw new Error(
+        "TURSO_DATABASE_URL belum diatur di Environment Variables Vercel."
+      );
     }
+  }
+
+  const local = !url;
+  if (local) {
     const dataDir = path.join(process.cwd(), "data");
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    url = `file:${path.join(dataDir, "siajar.db")}`;
   }
-  const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+
+  const client = createClient({
+    url: url ?? `file:${path.join(process.cwd(), "data", "siajar.db")}`,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
   const ready = init(client, local);
   ready.catch((err) => {
     console.error("Gagal menyiapkan database", err);

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "@/components/login-form";
 
@@ -105,6 +106,17 @@ export default async function LoginPage() {
               password setelah masuk.
             </p>
           </div>
+
+          <div className="mt-4 text-center text-xs">
+            <Link
+              href="/daftar"
+              className="font-semibold text-brand-700 hover:underline"
+            >
+              Daftar akun baru
+            </Link>
+            <span className="text-stone-400"> jika Anda belum memiliki akun.</span>
+          </div>
+
         </div>
       </section>
     </div>

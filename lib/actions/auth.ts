@@ -141,3 +141,46 @@ export async function removeSignatureAction(): Promise<void> {
   revalidatePath("/", "layout");
   redirect("/akun?ok=ttd");
 }
+
+export async function registerAction(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const username = String(formData.get("username") ?? "").trim().toLowerCase();
+  const nama = String(formData.get("nama") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (!username || !nama || !password) {
+    return { error: "Semua kolom wajib diisi." };
+  }
+  if (password.length < 6) {
+    return { error: "Password minimal 6 karakter." };
+  }
+  if (password !== confirm) {
+    return { error: "Password dan konfirmasi password tidak sama." };
+  }
+
+  const db = getDb();
+  const existing = (await db
+    .prepare("SELECT id FROM users WHERE username = ?")
+    .get(username)) as unknown as { id: number } | undefined;
+
+  if (existing) {
+    return { error: "Username sudah digunakan." };
+  }
+
+  const role = String(formData.get("role") ?? "guru").trim().toLowerCase();
+  const allowedRoles = new Set(["guru", "kepala", "admin"]);
+  const finalRole = allowedRoles.has(role) ? role : "guru";
+
+  db.prepare(
+    `INSERT INTO users (username, nama, role, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(username, nama, finalRole, hashPassword(password), new Date().toISOString());
+
+  return {
+    ok: true,
+    message:
+      "Akun berhasil dibuat. Silakan masuk menggunakan username dan password yang baru dibuat.",
+  };
+}
