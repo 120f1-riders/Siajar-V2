@@ -1,0 +1,481 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-serif: "Times New Roman", Times, Georgia, serif;
+
+  --color-brand-50: #eff7f2;
+  --color-brand-100: #d8ecdf;
+  --color-brand-200: #b3dac3;
+  --color-brand-300: #85c1a2;
+  --color-brand-400: #52a480;
+  --color-brand-500: #2f8965;
+  --color-brand-600: #1f6f52;
+  --color-brand-700: #1a5943;
+  --color-brand-800: #174736;
+  --color-brand-900: #143b2e;
+  --color-brand-950: #0a2018;
+
+  --color-gold-100: #f8efd4;
+  --color-gold-300: #e3c877;
+  --color-gold-500: #b8912f;
+  --color-gold-700: #8a6a1c;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: #f7f6f3;
+    color: #292524;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: #b3dac3;
+    color: #0a2018;
+  }
+}
+
+/* ---------- App UI primitives ---------- */
+
+.card {
+  background: #fff;
+  border: 1px solid #e7e3dc;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(28, 25, 23, 0.04);
+}
+
+.label {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #78716c;
+  margin-bottom: 0.35rem;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border-radius: 0.55rem;
+  border: 1px solid #d9d4cc;
+  background: #fff;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.875rem;
+  color: #1c1917;
+  line-height: 1.4;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: #a8a29e;
+}
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px rgba(82, 164, 128, 0.18);
+}
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  background: #f5f4f1;
+  color: #57534e;
+  cursor: not-allowed;
+}
+.textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2357534e' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.55rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-brand-700);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-brand-800);
+}
+.btn-gold {
+  background: var(--color-gold-500);
+  color: #fff;
+}
+.btn-gold:hover:not(:disabled) {
+  background: var(--color-gold-700);
+}
+.btn-outline {
+  background: #fff;
+  border-color: #d9d4cc;
+  color: #44403c;
+}
+.btn-outline:hover:not(:disabled) {
+  border-color: #a8a29e;
+  background: #faf9f7;
+}
+.btn-ghost {
+  background: transparent;
+  color: #57534e;
+}
+.btn-ghost:hover:not(:disabled) {
+  background: #f1efe9;
+}
+.btn-danger {
+  background: #b91c1c;
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #991b1b;
+}
+.btn-sm {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.badge-draft {
+  background: #f5f4f1;
+  color: #57534e;
+  border-color: #e7e3dc;
+}
+.badge-diajukan {
+  background: #fef9e7;
+  color: #8a6a1c;
+  border-color: #f0e0a8;
+}
+.badge-disahkan {
+  background: #e8f5ee;
+  color: #1a5943;
+  border-color: #bfe3cf;
+}
+.badge-dikembalikan {
+  background: #fdecec;
+  color: #991b1b;
+  border-color: #f5c2c2;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #cfe4d8;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.nav-link-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--color-gold-300);
+}
+
+/* ---------- Document (cetak) ---------- */
+
+.sheet {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 16mm 16mm 18mm;
+  margin: 0 auto 20px;
+  background: #fff;
+  color: #111;
+  font-family: var(--font-serif);
+  font-size: 11pt;
+  box-shadow: 0 12px 34px rgba(28, 25, 23, 0.12);
+  box-sizing: border-box;
+}
+.sheet-landscape {
+  width: 297mm;
+  min-height: 210mm;
+  padding: 12mm 12mm 14mm;
+}
+
+.kop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 3px double #111;
+  padding-bottom: 7px;
+  margin-bottom: 14px;
+  line-height: 1.18;
+}
+.kop-logo {
+  width: 70px;
+  height: 70px;
+  flex: 0 0 70px;
+  object-fit: contain;
+}
+.kop-logo-spacer {
+  width: 70px;
+  flex: 0 0 70px;
+}
+.kop-logo-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #bbb;
+  border-radius: 6px;
+  font-size: 7pt;
+  color: #888;
+  text-align: center;
+}
+.kop-text {
+  flex: 1;
+  text-align: center;
+}
+.kop-line1 {
+  font-size: 11.5pt;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.kop-line2 {
+  font-size: 11pt;
+  font-weight: 600;
+}
+.kop-nama {
+  font-size: 16pt;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.kop-alamat {
+  font-size: 8.5pt;
+}
+.kop-kontak {
+  font-size: 8.5pt;
+}
+
+.doc-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 13pt;
+  letter-spacing: 0.04em;
+  margin: 10px 0 2px;
+  text-transform: uppercase;
+}
+.doc-subtitle {
+  text-align: center;
+  font-size: 11pt;
+  margin-bottom: 12px;
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+  line-height: 1.34;
+}
+.doc-table th,
+.doc-table td {
+  border: 1px solid #333;
+  padding: 4px 6px;
+  vertical-align: top;
+}
+.doc-table th {
+  background: #eef3f0;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+}
+.doc-table td.center {
+  text-align: center;
+}
+
+.doc-identitas {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5pt;
+  margin-bottom: 10px;
+}
+.doc-identitas td {
+  padding: 1.5px 0;
+  vertical-align: top;
+}
+.doc-identitas td.sep {
+  width: 2%;
+  text-align: center;
+}
+
+.sign-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 18px;
+  font-size: 10.5pt;
+  page-break-inside: avoid;
+}
+.sign-block {
+  min-width: 62mm;
+  text-align: center;
+  line-height: 1.3;
+}
+.sign-img {
+  height: 62px;
+  margin: 2px auto;
+  display: block;
+  object-fit: contain;
+}
+.sign-space {
+  height: 62px;
+}
+.sign-name {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.sign-nip {
+  font-size: 9.5pt;
+}
+.sign-unsigned {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8pt;
+  color: #777;
+  border-bottom: 1px dotted #999;
+  margin: 2px 8px;
+}
+
+.soal-item {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  page-break-inside: avoid;
+}
+.soal-nomor {
+  flex: 0 0 20px;
+  font-weight: 400;
+}
+.soal-body {
+  flex: 1;
+}
+.opsi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 12px;
+  margin-top: 2px;
+}
+.opsi-item {
+  display: flex;
+  gap: 5px;
+}
+.opsi-label {
+  flex: 0 0 16px;
+}
+
+.kartu-meta {
+  font-size: 10pt;
+}
+.kartu-soal-box {
+  border: 1px solid #333;
+  padding: 8px 10px;
+  min-height: 34mm;
+  font-size: 10.5pt;
+  line-height: 1.4;
+}
+.kartu-label {
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #555;
+  margin-bottom: 2px;
+}
+
+.print-toolbar {
+  background: #1c1917;
+  color: #e7e5e4;
+}
+
+@media screen {
+  .sheet-wrap {
+    overflow-x: auto;
+    padding: 18px 12px 32px;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 13mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print,
+  .no-print * {
+    display: none !important;
+  }
+  .sheet-wrap {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  .sheet {
+    width: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+  }
+  .page-break {
+    break-after: page;
+    page-break-after: always;
+  }
+  .avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .doc-table thead {
+    display: table-header-group;
+  }
+  .doc-table tr {
+    break-inside: avoid;
+  }
+}
