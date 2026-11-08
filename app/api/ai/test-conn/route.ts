@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { callAi } from "@/lib/ai";
 
 export async function GET() {
+  if (process.env.VERCEL) return new Response("Not found", { status: 404 });
   try {
     const content = await callAi(
       "Anda guru mata pelajaran. Jawab sangat singkat.",

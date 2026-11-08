@@ -9,15 +9,15 @@ export async function loadDokumen(id: number) {
   const user = await requireUser();
   if (!Number.isInteger(id)) notFound();
 
-  const paket = getPaket(id);
+  const paket = await getPaket(id);
   if (!paket) notFound();
   if (user.role === "guru" && paket.guru_id !== user.id) notFound();
 
   return {
     user,
     paket,
-    butir: getButir(id),
-    settings: getSettings(),
+    butir: await getButir(id),
+    settings: await getSettings(),
   };
 }
 

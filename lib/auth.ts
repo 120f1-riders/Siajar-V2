@@ -12,10 +12,10 @@ export async function createSession(userId: number) {
   const token = newToken();
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const db = getDb();
-  db.prepare(
+  await db.prepare(
     "INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)"
   ).run(sha256(token), userId, expires.toISOString());
-  db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(
+  await db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(
     new Date().toISOString()
   );
 
@@ -33,7 +33,7 @@ export async function destroySession() {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (token) {
-    getDb().prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha256(token));
+    await getDb().prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha256(token));
   }
   store.delete(SESSION_COOKIE);
 }
@@ -44,7 +44,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   if (!token) return null;
 
   const db = getDb();
-  const row = db
+  const row = await db
     .prepare(
       `SELECT u.id, u.username, u.nama, u.role, u.nip, u.ttd_path, u.harus_ganti_password,
               s.expires_at, u.aktif
@@ -58,7 +58,7 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
   if (!row) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) {
-    db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha256(token));
+    await db.prepare("DELETE FROM sessions WHERE token_hash = ?").run(sha256(token));
     return null;
   }
   if (!row.aktif) return null;
@@ -86,7 +86,7 @@ export async function authenticate(
   password: string
 ): Promise<{ user?: SessionUser; error?: string }> {
   const db = getDb();
-  const row = db
+  const row = await db
     .prepare(
       "SELECT id, username, nama, role, nip, ttd_path, harus_ganti_password, aktif, password_hash FROM users WHERE username = ?"
     )

@@ -41,7 +41,7 @@ export async function PUT(
     return Response.json({ error: "Paket tidak valid." }, { status: 400 });
   }
 
-  const paket = getPaket(id);
+  const paket = await getPaket(id);
   if (!paket) return Response.json({ error: "Paket tidak ditemukan." }, { status: 404 });
   if (paket.guru_id !== user.id) {
     return Response.json({ error: "Anda tidak berhak mengubah paket ini." }, { status: 403 });
@@ -104,50 +104,48 @@ export async function PUT(
   const db = getDb();
   const now = new Date().toISOString();
 
-  db.exec("BEGIN");
   try {
-    db.prepare(
-      `UPDATE paket SET mapel = ?, kelas = ?, semester = ?, tahun_ajaran = ?,
-              kurikulum = ?, jenis_penilaian = ?, alokasi_waktu = ?, petunjuk = ?,
-              cetak_kunci = ?, updated_at = ?
-        WHERE id = ?`
-    ).run(
-      mapel,
-      kelas,
-      body.semester === "Genap" ? "Genap" : "Ganjil",
-      tahunAjaran,
-      kurikulum,
-      text(body.jenis_penilaian, 160) || "Asesmen Sumatif Akhir Semester",
-      text(body.alokasi_waktu, 60),
-      text(body.petunjuk, 4000),
-      body.cetak_kunci ? 1 : 0,
-      now,
-      id
-    );
-
-    db.prepare("DELETE FROM butir WHERE paket_id = ?").run(id);
-    const insert = db.prepare(
-      `INSERT INTO butir (paket_id, nomor, bentuk, materi, acuan, indikator, level, soal, opsi, kunci, skor)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-    for (const item of preparedButir) {
-      insert.run(
-        id,
-        item.nomor,
-        item.bentuk,
-        item.materi,
-        item.acuan,
-        item.indikator,
-        item.level,
-        item.soal,
-        item.opsi,
-        item.kunci,
-        item.skor
+    await db.transaction(async (tx) => {
+      await tx.prepare(
+        `UPDATE paket SET mapel = ?, kelas = ?, semester = ?, tahun_ajaran = ?,
+                kurikulum = ?, jenis_penilaian = ?, alokasi_waktu = ?, petunjuk = ?,
+                cetak_kunci = ?, updated_at = ?
+          WHERE id = ?`
+      ).run(
+        mapel,
+        kelas,
+        body.semester === "Genap" ? "Genap" : "Ganjil",
+        tahunAjaran,
+        kurikulum,
+        text(body.jenis_penilaian, 160) || "Asesmen Sumatif Akhir Semester",
+        text(body.alokasi_waktu, 60),
+        text(body.petunjuk, 4000),
+        body.cetak_kunci ? 1 : 0,
+        now,
+        id
       );
-    }
-    db.exec("COMMIT");
+      await tx.prepare("DELETE FROM butir WHERE paket_id = ?").run(id);
+      const insert = tx.prepare(
+        `INSERT INTO butir (paket_id, nomor, bentuk, materi, acuan, indikator, level, soal, opsi, kunci, skor)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      );
+      for (const item of preparedButir) {
+        await insert.run(
+          id,
+          item.nomor,
+          item.bentuk,
+          item.materi,
+          item.acuan,
+          item.indikator,
+          item.level,
+          item.soal,
+          item.opsi,
+          item.kunci,
+          item.skor
+        );
+      }
+    });
   } catch (error) {
-    db.exec("ROLLBACK");
     console.error("Gagal menyimpan paket", error);
     return Response.json(
       { error: "Gagal menyimpan paket. Silakan coba lagi." },
@@ -155,7 +153,7 @@ export async function PUT(
     );
   }
 
-  return Response.json({ ok: true, updated_at: now, butir: getButir(id) });
+  return Response.json({ ok: true, updated_at: now, butir: await getButir(id) });
 }
 
 export async function DELETE(
@@ -170,7 +168,10 @@ export async function DELETE(
 
   const { id: rawId } = await ctx.params;
   const id = Number(rawId);
-  const paket = getPaket(id);
+  if (!Number.isInteger(id)) {
+    return Response.json({ error: "Paket tidak valid." }, { status: 400 });
+  }
+  const paket = await getPaket(id);
   if (!paket) return Response.json({ error: "Paket tidak ditemukan." }, { status: 404 });
   if (paket.guru_id !== user.id && user.role !== "admin") {
     return Response.json({ error: "Anda tidak berhak menghapus paket ini." }, { status: 403 });
@@ -182,6 +183,8 @@ export async function DELETE(
     );
   }
 
-  getDb().prepare("DELETE FROM paket WHERE id = ?").run(id);
+  const db = getDb();
+  await db.prepare("DELETE FROM butir WHERE paket_id = ?").run(id);
+  await db.prepare("DELETE FROM paket WHERE id = ?").run(id);
   return Response.json({ ok: true });
 }

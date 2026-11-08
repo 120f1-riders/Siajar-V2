@@ -17,12 +17,12 @@ export function googleRedirectUri(origin: string): string {
   return `${origin.replace(/\/+$/, "")}/api/google/callback`;
 }
 
-export function buildGoogleAuthUrl(
+export async function buildGoogleAuthUrl(
   origin: string,
   state: string,
   params?: URLSearchParams
-): string {
-  const connection = getIntegrations();
+): Promise<string> {
+  const connection = await getIntegrations();
   if (!connection.google_client_id) throw new Error("GOOGLE_NOT_CONFIGURED");
   const baseParams = new URLSearchParams({
     client_id: connection.google_client_id,
@@ -70,7 +70,7 @@ export async function connectGoogleAccount(
   origin: string,
   code: string
 ): Promise<string> {
-  const connection = getIntegrations();
+  const connection = await getIntegrations();
   if (!connection.google_client_id || !connection.google_client_secret) {
     throw new Error("GOOGLE_NOT_CONFIGURED");
   }
@@ -100,7 +100,7 @@ export async function connectGoogleAccount(
     ? ((await info.json()) as { email?: string })
     : { email: "" };
 
-  saveIntegrations({
+  await saveIntegrations({
     google_refresh_token: token.refresh_token,
     google_email: profile.email ?? "",
     google_connected_at: new Date().toISOString(),
@@ -108,12 +108,12 @@ export async function connectGoogleAccount(
 
   // Buat folder tujuan bila belum ada
   try {
-    let folderId = getIntegrations().google_folder_id;
+    let folderId = (await getIntegrations()).google_folder_id;
     if (!folderId) {
       const created = await ensureGoogleFolder(token.access_token);
       if (created) {
         folderId = created;
-        saveIntegrations({ google_folder_id: folderId });
+        await saveIntegrations({ google_folder_id: folderId });
       }
     }
   } catch {
@@ -135,7 +135,7 @@ export async function getGoogleAccessToken(): Promise<string> {
     return cachedToken.token;
   }
 
-  const connection = getIntegrations();
+  const connection = await getIntegrations();
   if (!connection.google_refresh_token)
     throw new Error("GOOGLE_NOT_CONNECTED");
   if (!connection.google_client_id || !connection.google_client_secret) {

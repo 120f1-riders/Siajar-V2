@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authenticate, createSession, SESSION_COOKIE } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+  if (process.env.VERCEL) return new Response("Not found", { status: 404 });
   const body = await req.json().catch(() => ({}));
   const username = String(body.username ?? "").trim();
   const password = String(body.password ?? "");

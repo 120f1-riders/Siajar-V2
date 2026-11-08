@@ -78,8 +78,8 @@ function DaftarPaket({
   );
 }
 
-function GuruDashboard({ user }: { user: SessionUser }) {
-  const paket = listPaket({ guruId: user.id });
+async function GuruDashboard({ user }: { user: SessionUser }) {
+  const paket = await listPaket({ guruId: user.id });
   const milik = paket.reduce(
     (acc, item) => {
       acc.total += 1;
@@ -143,10 +143,10 @@ function GuruDashboard({ user }: { user: SessionUser }) {
   );
 }
 
-function KepalaDashboard({ user }: { user: SessionUser }) {
-  const settings = getSettings();
-  const menunggu = listPaket({ status: ["diajukan"] });
-  const disahkan = listPaket({ status: ["disahkan"], limit: 6 });
+async function KepalaDashboard({ user }: { user: SessionUser }) {
+  const settings = await getSettings();
+  const menunggu = await listPaket({ status: ["diajukan"] });
+  const disahkan = await listPaket({ status: ["disahkan"], limit: 6 });
   const punyaTtd = Boolean(user.ttd_path || settings.kepala_ttd_path);
 
   return (
@@ -246,11 +246,11 @@ function KepalaDashboard({ user }: { user: SessionUser }) {
   );
 }
 
-function AdminDashboard({ user }: { user: SessionUser }) {
-  const users = countUsersByRole();
-  const paket = countPaketByStatus();
-  const pendingReset = countPendingReset();
-  const requests = listResetRequests().filter((r) => r.status === "pending").slice(0, 3);
+async function AdminDashboard({ user }: { user: SessionUser }) {
+  const users = await countUsersByRole();
+  const paket = await countPaketByStatus();
+  const pendingReset = await countPendingReset();
+  const requests = (await listResetRequests()).filter((r) => r.status === "pending").slice(0, 3);
 
   return (
     <div>

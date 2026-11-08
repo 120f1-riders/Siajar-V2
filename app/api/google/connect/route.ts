@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     maxAge: 600,
   });
 
-  const connection = getIntegrations();
+  const connection = await getIntegrations();
   if (!connection.google_client_id) {
     const target = new URL("/admin/pengaturan", url.origin);
     target.searchParams.set("google", "error");

@@ -25,10 +25,10 @@ const EMPTY: Integrations = {
   google_folder_id: "",
 };
 
-export function getIntegrations(): Integrations {
+export async function getIntegrations(): Promise<Integrations> {
   const db = getDb();
-  db.prepare("INSERT OR IGNORE INTO integrations (id) VALUES (1)").run();
-  const row = db
+  await db.prepare("INSERT OR IGNORE INTO integrations (id) VALUES (1)").run();
+  const row = await db
     .prepare("SELECT * FROM integrations WHERE id = 1")
     .get() as Record<string, unknown> | undefined;
   if (!row) return { ...EMPTY };
@@ -48,7 +48,7 @@ export function getIntegrations(): Integrations {
   };
 }
 
-export function saveIntegrations(values: Partial<Integrations>) {
+export async function saveIntegrations(values: Partial<Integrations>) {
   const allowed: (keyof Integrations)[] = [
     "ai_api_key",
     "ai_api_base",
@@ -70,12 +70,12 @@ export function saveIntegrations(values: Partial<Integrations>) {
   }
   if (updates.length === 0) return;
 
-  getDb()
+  await getDb()
     .prepare(`UPDATE integrations SET ${updates.join(", ")} WHERE id = 1`)
     .run(...params);
 }
 
-export function getAiConfig() {
+export async function getAiConfig() {
   if (process.env.ANTHROPIC_API_KEY) {
     return {
       apiKey: process.env.ANTHROPIC_API_KEY,
@@ -83,7 +83,7 @@ export function getAiConfig() {
       model: process.env.ANTHROPIC_MODEL || "claude-haiku-5-5",
     };
   }
-  const row = getIntegrations();
+  const row = await getIntegrations();
   return {
     apiKey: row.ai_api_key,
     base: (row.ai_api_base || "https://api.anthropic.com").replace(/\/v1\/?$/, ""),
@@ -98,10 +98,10 @@ export function getGeminiConfig() {
   };
 }
 
-export function googleConnected(): boolean {
-  return Boolean(getIntegrations().google_refresh_token);
+export async function googleConnected(): Promise<boolean> {
+  return Boolean((await getIntegrations()).google_refresh_token);
 }
 
-export function googleFolderId(): string {
-  return getIntegrations().google_folder_id || "";
+export async function googleFolderId(): Promise<string> {
+  return (await getIntegrations()).google_folder_id || "";
 }

@@ -14,7 +14,7 @@ export default async function IntegrasiPage({
   await requireUser(["admin"]);
 
   const [integrations, params, headerList] = await Promise.all([
-    getIntegrations(),
+    await getIntegrations(),
     searchParams,
     headers(),
   ]);

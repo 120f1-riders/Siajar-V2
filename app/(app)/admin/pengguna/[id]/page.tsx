@@ -25,7 +25,7 @@ export default async function PenggunaDetailPage({
   const id = Number(rawId);
   if (!Number.isInteger(id)) notFound();
 
-  const user = listUsers().find((item) => item.id === id);
+  const user = (await listUsers()).find((item) => item.id === id);
   if (!user) notFound();
 
   const isSelf = user.id === admin.id;

@@ -19,10 +19,10 @@ export async function POST(req: Request) {
     return Response.json({ error: "Origin tidak diizinkan." }, { status: 403 });
   }
 
-  const settings = getSettings();
+  const settings = await getSettings();
   const now = new Date().toISOString();
   const db = getDb();
-  const info = db
+  const info = await db
     .prepare(
       `INSERT INTO paket
         (guru_id, mapel, kelas, semester, tahun_ajaran, kurikulum, jenis_penilaian,

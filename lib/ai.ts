@@ -21,8 +21,8 @@ export type AiButirDraft = {
   kunci: string;
 };
 
-export function aiConfigured(): boolean {
-  return Boolean(getGeminiConfig().apiKey || getAiConfig().apiKey);
+export async function aiConfigured(): Promise<boolean> {
+  return Boolean(getGeminiConfig().apiKey || (await getAiConfig()).apiKey);
 }
 
 const SYSTEM_PROMPT = `Anda adalah guru mata pelajaran di madrasah di Indonesia yang biasa menyusun soal asesmen. Tugas Anda membuat draf satu butir soal dari data yang diberikan guru.
@@ -50,7 +50,7 @@ export async function callAi(
   timeoutMs: number
 ): Promise<string> {
   const gemini = getGeminiConfig();
-  const claude = getAiConfig();
+  const claude = await getAiConfig();
   if (!gemini.apiKey && !claude.apiKey) throw new Error("MISSING_AI_KEY");
   if (gemini.apiKey) {
     try {
@@ -109,7 +109,7 @@ async function callClaude(
   maxTokens: number,
   timeoutMs: number
 ): Promise<string> {
-  const config = getAiConfig();
+  const config = await getAiConfig();
   const base = config.base.replace(/\/$/, "");
 
   const controller = new AbortController();

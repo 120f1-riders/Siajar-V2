@@ -52,18 +52,18 @@ export async function POST(req: Request) {
     return json({ error: "Permintaan ekspor tidak valid." }, 400);
   }
 
-  const paket = getPaket(paketId);
+  const paket = await getPaket(paketId);
   if (!paket) return json({ error: "Paket soal tidak ditemukan." }, 404);
   if (user.role === "guru" && paket.guru_id !== user.id) {
     return json({ error: "Paket ini bukan milik Anda." }, 403);
   }
 
-  const butir = getButir(paketId);
+  const butir = await getButir(paketId);
   if (butir.length === 0) {
     return json({ error: "Tambahkan butir soal terlebih dahulu." }, 400);
   }
 
-  if (!getIntegrations().google_refresh_token) {
+  if (!(await getIntegrations()).google_refresh_token) {
     return json(
       {
         error:
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const integrations = getIntegrations();
+  const integrations = await getIntegrations();
   const parentFor = (target: string) => {
     if (target === GSHEET_MIME && integrations.google_folder_id)
       return integrations.google_folder_id;
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     return null;
   };
 
-  const data: ExportData = { paket, butir, settings: getSettings() };
+  const data: ExportData = { paket, butir, settings: await getSettings() };
   const name = fileName(paket, JENIS[jenis].label);
 
   async function upload(buffer: Buffer, targetMime: string) {

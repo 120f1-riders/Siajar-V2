@@ -47,18 +47,18 @@ export async function forgotAction(
 
   const keterangan = String(formData.get("keterangan") ?? "").trim().slice(0, 300);
   const db = getDb();
-  const user = db
+  const user = await db
     .prepare("SELECT id FROM users WHERE username = ?")
     .get(username) as { id: number } | undefined;
 
   if (user) {
-    const pending = db
+    const pending = await db
       .prepare(
         "SELECT COUNT(*) AS n FROM reset_requests WHERE user_id = ? AND status = 'pending'"
       )
       .get(user.id) as { n: number };
     if (Number(pending.n) === 0) {
-      db.prepare(
+      await db.prepare(
         "INSERT INTO reset_requests (user_id, keterangan, status, created_at) VALUES (?, ?, 'pending', ?)"
       ).run(user.id, keterangan, new Date().toISOString());
     }
@@ -85,7 +85,7 @@ export async function changePasswordAction(
   if (baru !== ulangi) return { error: "Konfirmasi password tidak sama." };
 
   const db = getDb();
-  const row = db
+  const row = await db
     .prepare("SELECT password_hash FROM users WHERE id = ?")
     .get(user.id) as { password_hash: string } | undefined;
   if (!row) return { error: "Akun tidak ditemukan." };
@@ -93,7 +93,7 @@ export async function changePasswordAction(
     return { error: "Password lama salah." };
   }
 
-  db.prepare(
+  await db.prepare(
     "UPDATE users SET password_hash = ?, harus_ganti_password = 0 WHERE id = ?"
   ).run(hashPassword(baru), user.id);
 
@@ -120,11 +120,11 @@ export async function updateProfileAction(
 
   const db = getDb();
   if (upload.path) {
-    db.prepare(
+    await db.prepare(
       "UPDATE users SET nama = ?, nip = ?, ttd_path = ? WHERE id = ?"
     ).run(nama, nip, upload.path, user.id);
   } else {
-    db.prepare("UPDATE users SET nama = ?, nip = ? WHERE id = ?").run(
+    await db.prepare("UPDATE users SET nama = ?, nip = ? WHERE id = ?").run(
       nama,
       nip,
       user.id
@@ -137,7 +137,7 @@ export async function updateProfileAction(
 
 export async function removeSignatureAction(): Promise<void> {
   const user = await requireUser();
-  getDb().prepare("UPDATE users SET ttd_path = NULL WHERE id = ?").run(user.id);
+  await getDb().prepare("UPDATE users SET ttd_path = NULL WHERE id = ?").run(user.id);
   revalidatePath("/", "layout");
   redirect("/akun?ok=ttd");
 }

@@ -16,11 +16,11 @@ export default async function PaketEditorPage({
   const id = Number(rawId);
   if (!Number.isInteger(id)) notFound();
 
-  const paket = getPaket(id);
+  const paket = await getPaket(id);
   if (!paket || paket.guru_id !== user.id) notFound();
 
-  const butir = getButir(id);
-  const integrations = getIntegrations();
+  const butir = await getButir(id);
+  const integrations = await getIntegrations();
 
   return (
     <PaketEditor

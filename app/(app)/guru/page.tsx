@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default async function GuruPaketPage() {
   const user = await requireUser(["guru"]);
-  const paket = listPaket({ guruId: user.id });
+  const paket = await listPaket({ guruId: user.id });
 
   return (
     <div>

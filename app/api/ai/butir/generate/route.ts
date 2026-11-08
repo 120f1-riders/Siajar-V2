@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     return json({ error: "Fitur bantuan AI hanya tersedia untuk akun guru." }, 403);
   }
   if (!isSameOrigin(req)) return json({ error: "Origin tidak diizinkan." }, 403);
-  if (!aiConfigured() && process.env.AI_USE_MOCK !== "true") {
+  if (!await aiConfigured() && process.env.AI_USE_MOCK !== "true") {
     return json(
       {
         error:

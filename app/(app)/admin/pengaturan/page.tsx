@@ -15,7 +15,7 @@ export default async function PengaturanPage({
   await requireUser(["admin"]);
 
   const [settings, params] = await Promise.all([
-    getSettings(),
+    await getSettings(),
     searchParams,
   ]);
 

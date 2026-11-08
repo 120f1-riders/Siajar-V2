@@ -48,12 +48,12 @@ export async function createUserAction(
   if (password.length < 6) return { error: "Password minimal 6 karakter." };
 
   const db = getDb();
-  const exists = db
+  const exists = await db
     .prepare("SELECT id FROM users WHERE username = ?")
     .get(username);
   if (exists) return { error: "Username sudah digunakan." };
 
-  db.prepare(
+  await db.prepare(
     `INSERT INTO users (username, nama, role, nip, password_hash, aktif, created_at)
      VALUES (?, ?, ?, ?, ?, 1, ?)`
   ).run(username, nama, roleRaw, nip, hashPassword(password), new Date().toISOString());
@@ -85,7 +85,7 @@ export async function updateUserAction(
   }
 
   const db = getDb();
-  const target = db
+  const target = await db
     .prepare("SELECT id, role FROM users WHERE id = ?")
     .get(id) as { id: number; role: Role } | undefined;
   if (!target) return { error: "Pengguna tidak ditemukan." };
@@ -95,7 +95,7 @@ export async function updateUserAction(
   }
 
   if (target.role === "admin" && roleRaw !== "admin") {
-    const admins = db
+    const admins = await db
       .prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND aktif = 1")
       .get() as { n: number };
     if (Number(admins.n) <= 1) {
@@ -103,18 +103,18 @@ export async function updateUserAction(
     }
   }
 
-  const taken = db
+  const taken = await db
     .prepare("SELECT id FROM users WHERE username = ? AND id <> ?")
     .get(username, id);
   if (taken) return { error: "Username sudah digunakan pengguna lain." };
 
   if (password) {
-    db.prepare(
+    await db.prepare(
       `UPDATE users SET username = ?, nama = ?, role = ?, nip = ?, password_hash = ?,
               harus_ganti_password = 1 WHERE id = ?`
     ).run(username, nama, roleRaw, nip, hashPassword(password), id);
   } else {
-    db.prepare(
+    await db.prepare(
       "UPDATE users SET username = ?, nama = ?, role = ?, nip = ? WHERE id = ?"
     ).run(username, nama, roleRaw, nip, id);
   }
@@ -132,13 +132,13 @@ export async function resetUserPasswordAction(
   if (!Number.isInteger(id)) return { error: "Pengguna tidak valid." };
 
   const db = getDb();
-  const user = db
+  const user = await db
     .prepare("SELECT username FROM users WHERE id = ?")
     .get(id) as { username: string } | undefined;
   if (!user) return { error: "Pengguna tidak ditemukan." };
 
   const temp = generateTempPassword();
-  db.prepare(
+  await db.prepare(
     "UPDATE users SET password_hash = ?, harus_ganti_password = 1 WHERE id = ?"
   ).run(hashPassword(temp), id);
 
@@ -158,24 +158,24 @@ export async function toggleUserActiveAction(formData: FormData): Promise<void> 
   }
 
   const db = getDb();
-  const user = db
+  const user = await db
     .prepare("SELECT role, aktif FROM users WHERE id = ?")
     .get(id) as { role: Role; aktif: number } | undefined;
   if (!user) redirect("/admin?err=notfound");
 
   if (user.role === "admin" && user.aktif) {
-    const admins = db
+    const admins = await db
       .prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND aktif = 1")
       .get() as { n: number };
     if (Number(admins.n) <= 1) redirect("/admin?err=lastadmin");
   }
 
-  db.prepare("UPDATE users SET aktif = ? WHERE id = ?").run(
+  await db.prepare("UPDATE users SET aktif = ? WHERE id = ?").run(
     user.aktif ? 0 : 1,
     id
   );
   if (user.aktif) {
-    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
+    await db.prepare("DELETE FROM sessions WHERE user_id = ?").run(id);
   }
   revalidatePath("/admin");
   redirect(`/admin/pengguna/${id}?ok=status`);
@@ -189,19 +189,25 @@ export async function deleteUserAction(formData: FormData): Promise<void> {
   }
 
   const db = getDb();
-  const user = db
+  const user = await db
     .prepare("SELECT role, aktif FROM users WHERE id = ?")
     .get(id) as { role: Role; aktif: number } | undefined;
   if (!user) redirect("/admin?err=notfound");
 
   if (user.role === "admin" && user.aktif) {
-    const admins = db
+    const admins = await db
       .prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND aktif = 1")
       .get() as { n: number };
     if (Number(admins.n) <= 1) redirect("/admin?err=lastadmin");
   }
 
-  db.prepare("DELETE FROM users WHERE id = ?").run(id);
+  await db.batch([
+    ["DELETE FROM sessions WHERE user_id = ?", id],
+    ["DELETE FROM reset_requests WHERE user_id = ?", id],
+    ["DELETE FROM butir WHERE paket_id IN (SELECT id FROM paket WHERE guru_id = ?)", id],
+    ["DELETE FROM paket WHERE guru_id = ?", id],
+    ["DELETE FROM users WHERE id = ?", id],
+  ]);
   revalidatePath("/admin");
   redirect("/admin?ok=hapus");
 }
@@ -215,7 +221,7 @@ export async function handleResetRequestAction(
   if (!Number.isInteger(id)) return { error: "Permintaan tidak valid." };
 
   const db = getDb();
-  const request = db
+  const request = await db
     .prepare(
       `SELECT r.id, r.status, u.id AS user_id, u.username
          FROM reset_requests r JOIN users u ON u.id = r.user_id
@@ -231,10 +237,10 @@ export async function handleResetRequestAction(
   }
 
   const temp = generateTempPassword();
-  db.prepare(
+  await db.prepare(
     "UPDATE users SET password_hash = ?, harus_ganti_password = 1 WHERE id = ?"
   ).run(hashPassword(temp), request.user_id);
-  db.prepare(
+  await db.prepare(
     "UPDATE reset_requests SET status = 'done', handled_at = ?, handled_by = ? WHERE id = ?"
   ).run(new Date().toISOString(), admin.id, id);
 
@@ -251,7 +257,7 @@ export async function ignoreResetRequestAction(formData: FormData): Promise<void
   const admin = await requireUser(["admin"]);
   const id = Number(formData.get("id"));
   if (!Number.isInteger(id)) redirect("/admin");
-  getDb()
+  await getDb()
     .prepare(
       "UPDATE reset_requests SET status = 'ignored', handled_at = ?, handled_by = ? WHERE id = ?"
     )
@@ -304,7 +310,7 @@ export async function saveSettingsAction(
   if (formData.get("hapus_logo") === "1") values.logo_path = "";
   if (formData.get("hapus_ttd") === "1") values.kepala_ttd_path = "";
 
-  saveSettings(values);
+  await saveSettings(values);
   revalidateSemua();
   return { ok: true, message: "Identitas madrasah dan kop surat berhasil disimpan." };
 }
@@ -337,7 +343,7 @@ export async function saveIntegrationsAction(
     if (folderId && !/^[-\w:]+$/.test(folderId)) return { error: "ID folder Google tidak valid." };
   }
 
-  const before = getIntegrations();
+  const before = await getIntegrations();
   const values: Partial<Integrations> = {
     ai_api_base: aiBase,
     ai_model: aiModel,
@@ -365,7 +371,7 @@ export async function saveIntegrationsAction(
     values.google_connected_at = null;
   }
 
-  saveIntegrations(values);
+  await saveIntegrations(values);
   resetGoogleTokenCache();
   revalidatePath("/admin/pengaturan");
 
@@ -380,7 +386,7 @@ export async function saveIntegrationsAction(
 
 export async function disconnectGoogleAction(): Promise<void> {
   await requireUser(["admin"]);
-  saveIntegrations({
+  await saveIntegrations({
     google_refresh_token: "",
     google_email: "",
     google_connected_at: null,

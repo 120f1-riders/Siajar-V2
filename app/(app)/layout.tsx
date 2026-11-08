@@ -10,7 +10,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  const pendingReset = user.role === "admin" ? countPendingReset() : 0;
+  const pendingReset = user.role === "admin" ? await countPendingReset() : 0;
 
   const items: NavItem[] = [{ href: "/dashboard", label: "Dasbor", icon: "home" }];
 

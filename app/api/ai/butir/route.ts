@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   if (!isSameOrigin(req)) {
     return json({ error: "Origin tidak diizinkan." }, 403);
   }
-  if (!aiConfigured()) {
+  if (!await aiConfigured()) {
     return json(
       {
         error:

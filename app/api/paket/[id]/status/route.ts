@@ -16,7 +16,10 @@ export async function POST(
 
   const { id: rawId } = await ctx.params;
   const id = Number(rawId);
-  const paket = getPaket(id);
+  if (!Number.isInteger(id)) {
+    return Response.json({ error: "Paket tidak valid." }, { status: 400 });
+  }
+  const paket = await getPaket(id);
   if (!paket) return Response.json({ error: "Paket tidak ditemukan." }, { status: 404 });
 
   const body = (await req.json()) as { action?: string; catatan?: string };
@@ -34,7 +37,7 @@ export async function POST(
     if (paket.status !== "draft" && paket.status !== "dikembalikan") {
       return Response.json({ error: "Paket tidak dapat diajukan saat ini." }, { status: 409 });
     }
-    const butir = getButir(id);
+    const butir = await getButir(id);
     if (butir.length === 0) {
       return Response.json({ error: "Tambahkan minimal satu butir soal." }, { status: 400 });
     }
@@ -52,7 +55,7 @@ export async function POST(
       );
     }
 
-    db.prepare(
+    await db.prepare(
       `UPDATE paket SET status = 'diajukan', submitted_at = ?, updated_at = ?,
               catatan_kepala = NULL WHERE id = ?`
     ).run(now, now, id);
@@ -66,7 +69,7 @@ export async function POST(
     if (paket.status !== "diajukan") {
       return Response.json({ error: "Paket tidak sedang diajukan." }, { status: 409 });
     }
-    db.prepare(
+    await db.prepare(
       "UPDATE paket SET status = 'draft', submitted_at = NULL, updated_at = ? WHERE id = ?"
     ).run(now, id);
     return Response.json({ ok: true, status: "draft" });
@@ -85,11 +88,11 @@ export async function POST(
         { status: 409 }
       );
     }
-    const butir = getButir(id);
+    const butir = await getButir(id);
     if (butir.length === 0) {
       return Response.json({ error: "Paket belum memiliki butir soal." }, { status: 400 });
     }
-    db.prepare(
+    await db.prepare(
       `UPDATE paket SET status = 'disahkan', signed_by = ?, signed_at = ?,
               updated_at = ?, catatan_kepala = NULL WHERE id = ?`
     ).run(user.id, now, now, id);
@@ -107,7 +110,7 @@ export async function POST(
       return Response.json({ error: "Paket tidak sedang diajukan." }, { status: 409 });
     }
     const catatan = String(body.catatan ?? "").trim().slice(0, 500);
-    db.prepare(
+    await db.prepare(
       `UPDATE paket SET status = 'dikembalikan', catatan_kepala = ?, updated_at = ?,
               signed_by = NULL, signed_at = NULL WHERE id = ?`
     ).run(catatan, now, id);

@@ -34,8 +34,8 @@ export default async function AdminPage({
   const ok = OK_MESSAGES[first(params.ok)];
   const error = ERR_MESSAGES[first(params.err)];
 
-  const users = listUsers();
-  const requests = listResetRequests();
+  const users = await listUsers();
+  const requests = await listResetRequests();
   const pending = requests.filter((request) => request.status === "pending").length;
 
   return (

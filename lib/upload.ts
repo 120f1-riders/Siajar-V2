@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
+import { put } from "@vercel/blob";
 
 const ALLOWED: Record<string, string> = {
   "image/png": ".png",
@@ -23,10 +24,22 @@ export async function saveImageUpload(
   if (!ext) {
     return { error: "Format gambar harus PNG, JPG, WEBP, atau SVG." };
   }
-  const dir = path.join(process.cwd(), "public", "uploads");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const name = `${prefix}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`uploads/${name}`, buffer, {
+      access: "public",
+      contentType: file.type,
+    });
+    return { path: blob.url };
+  }
+  if (process.env.VERCEL) {
+    return { error: "Penyimpanan file belum aktif. Hubungkan Vercel Blob ke proyek ini." };
+  }
+
+  const dir = path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, name), buffer);
   return { path: `/uploads/${name}` };
 }

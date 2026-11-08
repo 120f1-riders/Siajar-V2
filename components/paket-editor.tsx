@@ -121,6 +121,12 @@ export function PaketEditor({
     setDirty(true);
   }
 
+  function tambahButir() {
+    if (form.butir.length >= 200) return;
+    setForm((prev) => ({ ...prev, butir: [...prev.butir, butirBaru()] }));
+    setDirty(true);
+  }
+
   function hapusButir(index: number) {
     setForm((prev) => ({
       ...prev,
@@ -860,6 +866,18 @@ export function PaketEditor({
           })}
         </div>
       )}
+
+      {!readonly ? (
+        <button
+          type="button"
+          onClick={tambahButir}
+          disabled={form.butir.length >= 200}
+          data-testid="tambah-butir-btn"
+          className="btn btn-outline btn-sm mt-3"
+        >
+          + Tambah Butir Soal
+        </button>
+      ) : null}
 
       {!readonly ? (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">

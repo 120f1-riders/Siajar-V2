@@ -1,9 +1,15 @@
+from http.cookiejar import CookieJar, DefaultCookiePolicy
+
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
 
 app = FastAPI()
-client = httpx.AsyncClient(base_url="http://127.0.0.1:3000", timeout=180)
+client = httpx.AsyncClient(
+    base_url="http://127.0.0.1:3000",
+    timeout=180,
+    cookies=CookieJar(policy=DefaultCookiePolicy(allowed_domains=[])),  # never store upstream cookies (avoid session leak between users)
+)
 HOP = {"host", "content-length", "connection", "transfer-encoding", "content-encoding"}
 
 

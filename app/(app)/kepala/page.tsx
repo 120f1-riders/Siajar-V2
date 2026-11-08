@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 
 export default async function KepalaPage() {
   const user = await requireUser(["kepala"]);
-  const settings = getSettings();
-  const menunggu = listPaket({ status: ["diajukan"] });
-  const riwayat = listPaket({ status: ["disahkan"], limit: 20 });
+  const settings = await getSettings();
+  const menunggu = await listPaket({ status: ["diajukan"] });
+  const riwayat = await listPaket({ status: ["disahkan"], limit: 20 });
   const punyaTtd = Boolean(user.ttd_path || settings.kepala_ttd_path);
 
   return (

@@ -20,11 +20,11 @@ export default async function KepalaDetailPage({
   const id = Number(rawId);
   if (!Number.isInteger(id)) notFound();
 
-  const paket = getPaket(id);
+  const paket = await getPaket(id);
   if (!paket) notFound();
 
-  const butir = getButir(id);
-  const settings = getSettings();
+  const butir = await getButir(id);
+  const settings = await getSettings();
   const info = kurikulumInfo(paket.kurikulum);
   const totalSkor = butir.reduce((sum, item) => sum + item.skor, 0);
   const punyaTtd = Boolean(user.ttd_path || settings.kepala_ttd_path);
