@@ -6,6 +6,8 @@ import {
   saveIntegrationsAction,
 } from "@/lib/actions/admin";
 
+type HasilUjiKoneksi = { state: "jalan" | "ok" | "gagal"; teks: string };
+
 export type IntegrationView = {
   aiKeySet: boolean;
   aiKeyFromEnv: boolean;
@@ -26,6 +28,40 @@ export function IntegrationForm({ view }: { view: IntegrationView }) {
   );
   const [folders, setFolders] = useState<Array<{ id: string; name: string }> | null>(null);
   const [pilihFolderOpen, setPilihFolderOpen] = useState(false);
+  const [uji, setUji] = useState<HasilUjiKoneksi | null>(null);
+
+  async function ujiKoneksi() {
+    setUji({ state: "jalan", teks: "Menghubungi layanan AI..." });
+    try {
+      const res = await fetch("/api/ai/test", { cache: "no-store" });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        ms?: number;
+        error?: string;
+        providers?: Array<{ id: string; aktif: boolean; model: string }>;
+      };
+      if (!res.ok || !data.ok) {
+        setUji({
+          state: "gagal",
+          teks: data.error ? `Gagal: ${data.error}` : `Gagal (HTTP ${res.status}).`,
+        });
+        return;
+      }
+      const aktif = (data.providers ?? [])
+        .filter((p) => p.aktif)
+        .map((p) => `${p.id} (${p.model})`)
+        .join(", ");
+      setUji({
+        state: "ok",
+        teks: `Berhasil dalam ${data.ms} ms${aktif ? ` — penyedia aktif: ${aktif}` : ""}.`,
+      });
+    } catch (error) {
+      setUji({
+        state: "gagal",
+        teks: `Gagal menghubungi server: ${(error as Error).message}`,
+      });
+    }
+  }
 
   return (
     <section className="card p-5">
@@ -71,7 +107,7 @@ export function IntegrationForm({ view }: { view: IntegrationView }) {
                 placeholder={
                   view.aiKeySet
                     ? view.aiKeyFromEnv
-                      ? "Aktif dari environment: Gemini utama, Claude cadangan"
+                      ? "Aktif dari environment: Gemini, OpenAI/ZyRouter, atau Claude"
                       : "Sudah tersimpan — kosongkan bila tidak diganti"
                     : "Isi kunci API, contoh dari Z.ai"
                 }
@@ -113,6 +149,34 @@ export function IntegrationForm({ view }: { view: IntegrationView }) {
                 placeholder="glm-5.3-flash"
               />
             </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              disabled={uji?.state === "jalan"}
+              onClick={ujiKoneksi}
+            >
+              {uji?.state === "jalan" ? "Menguji..." : "Uji koneksi AI"}
+            </button>
+            {uji ? (
+              <span
+                className={`text-[11px] ${
+                  uji.state === "ok"
+                    ? "text-brand-800"
+                    : uji.state === "gagal"
+                      ? "text-red-700"
+                      : "text-stone-500"
+                }`}
+              >
+                {uji.teks}
+              </span>
+            ) : (
+              <span className="text-[11px] text-stone-500">
+                Kirim satu permintaan singkat untuk memastikan kunci API dan model berjalan.
+              </span>
+            )}
           </div>
         </div>
 

@@ -135,6 +135,7 @@ const SCHEMA = `
     kurikulum TEXT NOT NULL DEFAULT 'merdeka',
     jenis_penilaian TEXT NOT NULL DEFAULT 'Asesmen Sumatif Akhir Semester',
     alokasi_waktu TEXT NOT NULL DEFAULT '90 menit',
+    materi TEXT NOT NULL DEFAULT '',
     petunjuk TEXT NOT NULL DEFAULT '',
     cetak_kunci INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'draft',
@@ -155,6 +156,7 @@ const SCHEMA = `
     acuan TEXT NOT NULL DEFAULT '',
     indikator TEXT NOT NULL DEFAULT '',
     level TEXT NOT NULL DEFAULT 'C2',
+    hots INTEGER NOT NULL DEFAULT 0,
     soal TEXT NOT NULL DEFAULT '',
     opsi TEXT NOT NULL DEFAULT '[]',
     kunci TEXT NOT NULL DEFAULT '',
@@ -182,9 +184,23 @@ const DEFAULT_SETTINGS: Record<string, string> = {
   semester: "Ganjil",
 };
 
+async function ensureColumn(
+  client: Client,
+  table: string,
+  column: string,
+  definition: string
+) {
+  const info = await client.execute(`PRAGMA table_info(${table})`);
+  const exists = info.rows.some((row) => String(row[1]) === column);
+  if (!exists) await client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
+}
+
 async function init(client: Client, local: boolean) {
   if (local) await client.execute("PRAGMA foreign_keys = ON");
   await client.executeMultiple(SCHEMA);
+  // Migrasi untuk database yang dibuat sebelum kolom ini ada.
+  await ensureColumn(client, "paket", "materi", "materi TEXT NOT NULL DEFAULT ''");
+  await ensureColumn(client, "butir", "hots", "hots INTEGER NOT NULL DEFAULT 0");
 
   const count = await client.execute("SELECT COUNT(*) AS n FROM users");
   const now = new Date().toISOString();

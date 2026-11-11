@@ -205,6 +205,12 @@ export const LEVEL_KOGNITIF = [
   { id: "C6", label: "C6 — Mencipta" },
 ];
 
+export const HOTS_LEVELS = ["C4", "C5", "C6"];
+
+export function isHotsLevel(level: string): boolean {
+  return HOTS_LEVELS.includes(level);
+}
+
 export function levelLabel(id: string): string {
   const found = LEVEL_KOGNITIF.find((l) => l.id === id);
   return found ? found.label : id || "-";

@@ -26,9 +26,18 @@ export default async function IntegrasiPage({
 
   const view: IntegrationView = {
     aiKeySet: Boolean(
-      integrations.ai_api_key || process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY
+      integrations.ai_api_key ||
+        process.env.GEMINI_API_KEY ||
+        process.env.ANTHROPIC_API_KEY ||
+        process.env.OPENAI_API_KEY ||
+        process.env.ZYROUTER_API_KEY
     ),
-    aiKeyFromEnv: Boolean(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY),
+    aiKeyFromEnv: Boolean(
+      process.env.GEMINI_API_KEY ||
+        process.env.ANTHROPIC_API_KEY ||
+        process.env.OPENAI_API_KEY ||
+        process.env.ZYROUTER_API_KEY
+    ),
     aiApiBase: integrations.ai_api_base,
     aiModel: integrations.ai_model,
     googleClientId: integrations.google_client_id,

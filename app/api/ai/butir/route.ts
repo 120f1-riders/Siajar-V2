@@ -53,6 +53,7 @@ export async function POST(req: Request) {
   const indikator = text(body.indikator, 1200);
   const bentuk = text(body.bentuk, 20) || "pg";
   const level = text(body.level, 10) || "C2";
+  const hots = body.hots === true || body.hots === 1 || body.hots === "1";
 
   if (!mapel) return json({ error: "Mata pelajaran wajib diisi." }, 400);
   if (!materi && !acuan) {
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
       materi,
       acuan,
       indikator,
+      hots,
     });
     return json(draft);
   } catch (error) {

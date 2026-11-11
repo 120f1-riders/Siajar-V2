@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { LEVEL_KOGNITIF } from "@/lib/konstanta";
+import { HOTS_LEVELS, LEVEL_KOGNITIF } from "@/lib/konstanta";
 import type { EditorButir } from "@/components/paket-editor";
 import { AiDraftList } from "@/components/ai-draft-list";
 
@@ -26,12 +26,13 @@ type Props = {
   jenisPenilaian: string;
   acuanLabel: string;
   acuanPlaceholder: string;
+  materiAwal?: string;
   sisaSlot: number;
   onSave: (butir: EditorButir[]) => Promise<boolean>;
 };
 
 export function AiGeneratorPanel(props: Props) {
-  const [materi, setMateri] = useState("");
+  const [materi, setMateri] = useState(props.materiAwal ?? "");
   const [acuan, setAcuan] = useState("");
   const [level, setLevel] = useState("campuran");
   const [jumlah, setJumlah] = useState<Record<string, number>>(
@@ -133,6 +134,7 @@ export function AiGeneratorPanel(props: Props) {
         return {
           ...h,
           opsi: opsi.slice(0, 5),
+          hots: Number(h.hots ?? 0) || (HOTS_LEVELS.includes(h.level) ? 1 : 0),
           materi: materi.trim(),
           acuan: acuan.trim(),
           skor: JENIS.find((j) => j.id === h.bentuk)?.skor ?? 1,

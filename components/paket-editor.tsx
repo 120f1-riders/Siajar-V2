@@ -15,12 +15,14 @@ import {
   MAPEL_SEMUA,
   MAPEL_UMUM,
   LEVEL_KOGNITIF,
+  HOTS_LEVELS,
   bentukInfo,
   kurikulumInfo,
 } from "@/lib/konstanta";
 import { statusInfo } from "@/lib/format";
 import { DriveExport } from "@/components/drive-export";
 import { AiGeneratorPanel } from "@/components/ai-generator-panel";
+import { SoalJadiForm } from "@/components/soal-jadi-form";
 
 export type EditorButir = {
   bentuk: string;
@@ -28,6 +30,7 @@ export type EditorButir = {
   acuan: string;
   indikator: string;
   level: string;
+  hots: number;
   soal: string;
   opsi: string[];
   kunci: string;
@@ -43,6 +46,7 @@ export type EditorPaket = {
   kurikulum: string;
   jenis_penilaian: string;
   alokasi_waktu: string;
+  materi: string;
   petunjuk: string;
   cetak_kunci: number;
   status: string;
@@ -66,6 +70,7 @@ function butirBaru(): EditorButir {
     acuan: "",
     indikator: "",
     level: "C2",
+    hots: 0,
     soal: "",
     opsi: ["", "", "", "", ""],
     kunci: "",
@@ -125,6 +130,19 @@ export function PaketEditor({
     if (form.butir.length >= 200) return;
     setForm((prev) => ({ ...prev, butir: [...prev.butir, butirBaru()] }));
     setDirty(true);
+  }
+
+  function tambahSoalJadi(butir: EditorButir) {
+    if (form.butir.length >= 200) {
+      setMessage({ tone: "err", text: "Paket sudah mencapai batas 200 butir." });
+      return;
+    }
+    setForm((prev) => ({ ...prev, butir: [...prev.butir, butir] }));
+    setDirty(true);
+    setMessage({
+      tone: "ok",
+      text: "Soal jadi ditambahkan ke daftar butir. Klik Simpan Paket agar tersimpan.",
+    });
   }
 
   function hapusButir(index: number) {
@@ -599,6 +617,21 @@ export function PaketEditor({
           </div>
 
           <div className="md:col-span-2 lg:col-span-3">
+            <label className="label">Materi pembelajaran</label>
+            <textarea
+              className="textarea min-h-[110px]"
+              value={form.materi}
+              onChange={(e) => setField("materi", e.target.value)}
+              placeholder={"Tulis materi pokok, satu materi per baris. Contoh:\nOperasi hitung bilangan bulat\nPecahan dan desimal"}
+              disabled={readonly}
+            />
+            <p className="mt-1.5 text-[11px] text-stone-500">
+              Baris pertama dipakai sebagai materi bawaan butir baru dan menjadi bahan
+              panel AI. Setiap butir tetap punya kolom materi sendiri.
+            </p>
+          </div>
+
+          <div className="md:col-span-2 lg:col-span-3">
             <label className="label">Petunjuk pengerjaan</label>
             <textarea
               className="textarea min-h-[110px]"
@@ -627,6 +660,10 @@ export function PaketEditor({
         </div>
       </section>
       {!readonly ? (
+        <SoalJadiForm materiPaket={form.materi} onAdd={tambahSoalJadi} />
+      ) : null}
+
+      {!readonly ? (
         <AiGeneratorPanel
           mapel={form.mapel}
           kelas={form.kelas}
@@ -634,6 +671,7 @@ export function PaketEditor({
           jenisPenilaian={form.jenis_penilaian}
           acuanLabel={info.acuanLabel}
           acuanPlaceholder={info.acuanPlaceholder}
+          materiAwal={form.materi}
           sisaSlot={200 - form.butir.length}
           onSave={simpanDariAi}
         />
@@ -659,6 +697,11 @@ export function PaketEditor({
                   <span className="badge border-stone-200 bg-white text-stone-600">
                     {bentuk.label}
                   </span>
+                  {b.hots ? (
+                    <span className="badge border-amber-200 bg-amber-50 text-amber-700">
+                      HOTS
+                    </span>
+                  ) : null}
                   <span className="min-w-0 flex-1 truncate text-sm text-stone-600">
                     {b.materi || "Materi belum diisi"}
                   </span>
@@ -745,15 +788,39 @@ export function PaketEditor({
                     <select
                       className="select"
                       value={b.level}
-                      onChange={(e) => updateButir(index, { level: e.target.value })}
+                      onChange={(e) => {
+                        const level = e.target.value;
+                        updateButir(index, {
+                          level,
+                          hots: HOTS_LEVELS.includes(level) ? 1 : b.hots,
+                        });
+                      }}
                       disabled={readonly}
                     >
                       {LEVEL_KOGNITIF.map((l) => (
                         <option key={l.id} value={l.id}>
-                          {l.label}
+                          {HOTS_LEVELS.includes(l.id) ? `${l.label} · HOTS` : l.label}
                         </option>
                       ))}
                     </select>
+                    <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-stone-600">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(b.hots)}
+                        onChange={(e) =>
+                          updateButir(index, {
+                            hots: e.target.checked ? 1 : 0,
+                            level:
+                              e.target.checked && !HOTS_LEVELS.includes(b.level)
+                                ? "C4"
+                                : b.level,
+                          })
+                        }
+                        disabled={readonly}
+                        className="h-3.5 w-3.5 accent-brand-700"
+                      />
+                      Soal HOTS (C4–C6)
+                    </label>
                   </div>
                   <div>
                     <label className="label">Skor / bobot</label>

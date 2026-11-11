@@ -131,7 +131,14 @@ export default async function KisiKisiPage({
                     <td className="whitespace-pre-line">{item.acuan || "-"}</td>
                     <td>{item.materi || "-"}</td>
                     <td className="whitespace-pre-line">{item.indikator || "-"}</td>
-                    <td className="center">{item.level}</td>
+                    <td className="center">
+                      {item.level}
+                      {item.hots ? (
+                        <span className="ml-1 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-bold text-amber-700">
+                          HOTS
+                        </span>
+                      ) : null}
+                    </td>
                     <td className="center">
                       {bentukInfo(item.bentuk).label}
                     </td>

@@ -29,6 +29,7 @@ export type Butir = {
   acuan: string;
   indikator: string;
   level: string;
+  hots: number;
   soal: string;
   opsi: string[];
   kunci: string;
@@ -45,6 +46,7 @@ export type Paket = {
   kurikulum: string;
   jenis_penilaian: string;
   alokasi_waktu: string;
+  materi: string;
   petunjuk: string;
   cetak_kunci: number;
   status: StatusPaket;

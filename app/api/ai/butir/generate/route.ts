@@ -58,7 +58,11 @@ export async function POST(req: Request) {
   }
   const items = rawItems.map((raw) => {
     const item = (raw ?? {}) as Record<string, unknown>;
-    return { bentuk: text(item.bentuk, 20), level: text(item.level, 4) };
+    return {
+      bentuk: text(item.bentuk, 20),
+      level: text(item.level, 4),
+      hots: item.hots === true || item.hots === 1 || item.hots === "1",
+    };
   });
   if (items.some((i) => !BENTUK_SOAL[i.bentuk] || !LEVEL_KOGNITIF.some((l) => l.id === i.level))) {
     return json({ error: "Bentuk soal atau level kognitif tidak dikenal." }, 400);

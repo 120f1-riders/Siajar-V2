@@ -1,5 +1,6 @@
 import "server-only";
-import { getAiConfig, getGeminiConfig } from "./integrations";
+import { getAiConfig, getGeminiConfig, getOpenAiConfig } from "./integrations";
+import { HOTS_LEVELS } from "./konstanta";
 
 export type AiButirInput = {
   mapel: string;
@@ -11,6 +12,7 @@ export type AiButirInput = {
   materi: string;
   acuan: string;
   indikator: string;
+  hots?: boolean;
 };
 
 export type AiButirDraft = {
@@ -22,7 +24,7 @@ export type AiButirDraft = {
 };
 
 export async function aiConfigured(): Promise<boolean> {
-  return Boolean(getGeminiConfig().apiKey || (await getAiConfig()).apiKey);
+  return Boolean(getGeminiConfig().apiKey || (await getAiConfig()).apiKey || getOpenAiConfig().apiKey);
 }
 
 const SYSTEM_PROMPT = `Anda adalah guru mata pelajaran di madrasah di Indonesia yang biasa menyusun soal asesmen. Tugas Anda membuat draf satu butir soal dari data yang diberikan guru.
@@ -42,7 +44,7 @@ Gaya penulisan yang wajib diikuti:
 Balas HANYA dengan satu objek JSON valid, tanpa penjelasan dan tanpa blok kode:
 {"level":"C2","indikator":"...","soal":"...","opsi":["..."],"kunci":"..."}`;
 
-// Gemini utama, Claude cadangan
+// Gemini utama, OpenAI cadangan, Claude terakhir
 export async function callAi(
   system: string,
   user: string,
@@ -50,17 +52,95 @@ export async function callAi(
   timeoutMs: number
 ): Promise<string> {
   const gemini = getGeminiConfig();
+  const openai = getOpenAiConfig();
   const claude = await getAiConfig();
-  if (!gemini.apiKey && !claude.apiKey) throw new Error("MISSING_AI_KEY");
+  if (!gemini.apiKey && !openai.apiKey && !claude.apiKey) throw new Error("MISSING_AI_KEY");
   if (gemini.apiKey) {
     try {
       return await callGemini(system, user, maxTokens, timeoutMs);
     } catch (err) {
+      console.error("Gemini gagal:", (err as Error).message.slice(0, 200));
+      if (!openai.apiKey) throw err;
+      console.error("Gemini gagal, beralih ke OpenAI:", (err as Error).message.slice(0, 200));
+    }
+  }
+  if (openai.apiKey) {
+    try {
+      return await callOpenAi(system, user, maxTokens, timeoutMs);
+    } catch (err) {
+      console.error("OpenAI gagal, beralih ke Claude:", (err as Error).message.slice(0, 200));
       if (!claude.apiKey) throw err;
-      console.error("Gemini gagal, beralih ke Claude:", (err as Error).message.slice(0, 200));
     }
   }
   return callClaude(system, user, maxTokens, timeoutMs);
+}
+
+async function callOpenAi(
+  system: string,
+  user: string,
+  maxTokens: number,
+  timeoutMs: number
+): Promise<string> {
+  const config = getOpenAiConfig();
+  const base = config.base.replace(/\/$/, "");
+  const res = await fetch(
+    `${base}/chat/completions`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + config.apiKey,
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.85,
+        max_tokens: maxTokens,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
+    }
+  );
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`OPENAI_HTTP_${res.status}${detail ? ": " + detail.slice(0, 300) : ""}`);
+  }
+  const text = await readOpenAiContent(res);
+  if (!text.trim()) throw new Error("AI_EMPTY");
+  return text;
+}
+
+// Sebagian gateway (mis. ZyRouter) membalas SSE walau stream=false diminta.
+async function readOpenAiContent(res: Response): Promise<string> {
+  const raw = await res.text();
+  if (!/^\s*data:/m.test(raw)) {
+    const data = JSON.parse(raw) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    return data.choices?.[0]?.message?.content ?? "";
+  }
+
+  let text = "";
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("data:")) continue;
+    const payload = trimmed.slice(5).trim();
+    if (!payload || payload === "[DONE]") continue;
+    try {
+      const chunk = JSON.parse(payload) as {
+        choices?: { delta?: { content?: string }; message?: { content?: string } }[];
+      };
+      const choice = chunk.choices?.[0];
+      text += choice?.delta?.content ?? choice?.message?.content ?? "";
+    } catch {
+      // baris SSE tidak lengkap, lewati
+    }
+  }
+  return text;
 }
 
 async function callGemini(
@@ -195,6 +275,11 @@ function buildUserPrompt(input: AiButirInput): string {
   if (input.indikator.trim()) {
     lines.push(`Indikator yang sudah ada (boleh disempurnakan): ${input.indikator}`);
   }
+  if (input.hots) {
+    lines.push(
+      "Soal HOTS: sajikan stimulus atau konteks baru (kasus, data, atau situasi), lalu tuntut penalaran tingkat tinggi, bukan sekadar mengingat."
+    );
+  }
   lines.push("", petunjukBentuk(input.bentuk));
   return lines.join("\n");
 }
@@ -284,7 +369,9 @@ export async function generateButirDraft(
 ): Promise<AiButirDraft> {
   if (process.env.AI_USE_MOCK === "true") return mockDraft(input);
   const content = await callAi(SYSTEM_PROMPT, buildUserPrompt(input), 1200, 55000);
-  return normalizeDraft(extractJson(content), input.bentuk, input.level);
+  const draft = normalizeDraft(extractJson(content), input.bentuk, input.level);
+  if (input.hots && !HOTS_LEVELS.includes(draft.level)) draft.level = "C4";
+  return draft;
 }
 
 export type AiBatchInput = {
@@ -294,7 +381,7 @@ export type AiBatchInput = {
   jenisPenilaian: string;
   materi: string;
   acuan: string;
-  items: { bentuk: string; level: string }[];
+  items: { bentuk: string; level: string; hots?: boolean }[];
   hindari: string[];
 };
 
@@ -326,7 +413,7 @@ function buildBatchPrompt(input: AiBatchInput): string {
   ];
   input.items.forEach((item, i) => {
     lines.push(
-      `${i + 1}. ${BENTUK_LABEL[item.bentuk] ?? "Pilihan Ganda"}, level ${item.level}. ${petunjukBentuk(item.bentuk)}`
+      `${i + 1}. ${BENTUK_LABEL[item.bentuk] ?? "Pilihan Ganda"}, level ${item.level}. ${petunjukBentuk(item.bentuk)}${item.hots ? " Wajib HOTS: sajikan stimulus baru dan tuntut penalaran tingkat tinggi." : ""}`
     );
   });
   if (input.hindari.length) {
@@ -358,10 +445,13 @@ export async function generateButirBatch(input: AiBatchInput): Promise<AiBatchDr
     const entry = list[i];
     if (!entry || typeof entry !== "object") return;
     try {
-      hasil.push({
-        ...normalizeDraft(entry as Record<string, unknown>, item.bentuk, item.level),
-        bentuk: item.bentuk,
-      });
+      const draft = normalizeDraft(
+        entry as Record<string, unknown>,
+        item.bentuk,
+        item.level
+      );
+      if (item.hots && !HOTS_LEVELS.includes(draft.level)) draft.level = "C4";
+      hasil.push({ ...draft, bentuk: item.bentuk });
     } catch {
       // butir yang tidak lengkap dilewati
     }

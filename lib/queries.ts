@@ -56,6 +56,7 @@ export async function getButir(paketId: number): Promise<Butir[]> {
   return rows.map((row) => ({
     ...(row as unknown as Butir),
     opsi: safeParseOpsi(row.opsi),
+    hots: Number(row.hots ?? 0),
     skor: Number(row.skor),
   }));
 }

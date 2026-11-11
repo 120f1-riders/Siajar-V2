@@ -11,6 +11,7 @@ type ButirPayload = {
   acuan?: string;
   indikator?: string;
   level?: string;
+  hots?: boolean;
   soal?: string;
   opsi?: string[];
   kunci?: string;
@@ -61,6 +62,7 @@ export async function PUT(
     kurikulum?: string;
     jenis_penilaian?: string;
     alokasi_waktu?: string;
+    materi?: string;
     petunjuk?: string;
     cetak_kunci?: boolean;
     butir?: ButirPayload[];
@@ -94,6 +96,7 @@ export async function PUT(
       acuan: text(item.acuan, 1200),
       indikator: text(item.indikator, 1200),
       level: text(item.level, 10) || "C2",
+      hots: item.hots ? 1 : 0,
       soal: text(item.soal, 6000),
       opsi: JSON.stringify(opsi),
       kunci: text(item.kunci, 2000),
@@ -108,7 +111,7 @@ export async function PUT(
     await db.transaction(async (tx) => {
       await tx.prepare(
         `UPDATE paket SET mapel = ?, kelas = ?, semester = ?, tahun_ajaran = ?,
-                kurikulum = ?, jenis_penilaian = ?, alokasi_waktu = ?, petunjuk = ?,
+                kurikulum = ?, jenis_penilaian = ?, alokasi_waktu = ?, materi = ?, petunjuk = ?,
                 cetak_kunci = ?, updated_at = ?
           WHERE id = ?`
       ).run(
@@ -119,6 +122,7 @@ export async function PUT(
         kurikulum,
         text(body.jenis_penilaian, 160) || "Asesmen Sumatif Akhir Semester",
         text(body.alokasi_waktu, 60),
+        text(body.materi, 4000),
         text(body.petunjuk, 4000),
         body.cetak_kunci ? 1 : 0,
         now,
@@ -126,8 +130,8 @@ export async function PUT(
       );
       await tx.prepare("DELETE FROM butir WHERE paket_id = ?").run(id);
       const insert = tx.prepare(
-        `INSERT INTO butir (paket_id, nomor, bentuk, materi, acuan, indikator, level, soal, opsi, kunci, skor)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO butir (paket_id, nomor, bentuk, materi, acuan, indikator, level, hots, soal, opsi, kunci, skor)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       );
       for (const item of preparedButir) {
         await insert.run(
@@ -138,6 +142,7 @@ export async function PUT(
           item.acuan,
           item.indikator,
           item.level,
+          item.hots,
           item.soal,
           item.opsi,
           item.kunci,

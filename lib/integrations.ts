@@ -91,9 +91,35 @@ export async function getAiConfig() {
   };
 }
 
-export function getGeminiConfig() {
+function normalizeOpenAiBase(raw: string | undefined, fallback: string): string {
+  const value = (raw || fallback).trim().replace(/\/+$/, "");
+  return value.replace(/\/chat\/completions$/, "");
+}
+
+/**
+ * OpenAI-compatible config (OpenAI langsung, atau gateway seperti ZyRouter).
+ * Mendukung nama variabel OPENAI_* maupun ZYROUTER_*.
+ */
+export function getOpenAiConfig() {
   return {
-    apiKey: process.env.GEMINI_API_KEY || "",
+    apiKey: process.env.OPENAI_API_KEY || process.env.ZYROUTER_API_KEY || "",
+    base: normalizeOpenAiBase(
+      process.env.OPENAI_API_BASE || process.env.ZYROUTER_BASE_URL,
+      "https://api.openai.com/v1"
+    ),
+    model:
+      process.env.OPENAI_MODEL ||
+      process.env.ZYROUTER_MODEL ||
+      "gpt-3.5-turbo",
+  };
+}
+
+export function getGeminiConfig() {
+  const key = (process.env.GEMINI_API_KEY || "").trim();
+  // Kunci gateway (mis. sk-zyr-...) bukan kunci Google, jangan dikirim ke Gemini.
+  const usable = key && !key.startsWith("sk-") ? key : "";
+  return {
+    apiKey: usable,
     model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
   };
 }
