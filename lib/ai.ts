@@ -24,7 +24,12 @@ export type AiButirDraft = {
 };
 
 export async function aiConfigured(): Promise<boolean> {
-  return Boolean(getGeminiConfig().apiKey || (await getAiConfig()).apiKey || getOpenAiConfig().apiKey);
+  return Boolean(
+    getGeminiConfig().apiKey ||
+      (await getAiConfig()).apiKey ||
+      getOpenAiConfig().apiKey ||
+      process.env.EMERGENT_LLM_KEY
+  );
 }
 
 const SYSTEM_PROMPT = `Anda adalah guru mata pelajaran di madrasah di Indonesia yang biasa menyusun soal asesmen. Tugas Anda membuat draf satu butir soal dari data yang diberikan guru.
@@ -44,8 +49,56 @@ Gaya penulisan yang wajib diikuti:
 Balas HANYA dengan satu objek JSON valid, tanpa penjelasan dan tanpa blok kode:
 {"level":"C2","indikator":"...","soal":"...","opsi":["..."],"kunci":"..."}`;
 
-// Gemini utama, OpenAI cadangan, Claude terakhir
+// Kunci Emergent dipakai sebagai cadangan terakhir untuk semua fitur AI
 export async function callAi(
+  system: string,
+  user: string,
+  maxTokens: number,
+  timeoutMs: number
+): Promise<string> {
+  const emergentKey = process.env.EMERGENT_LLM_KEY;
+  try {
+    return await callAiUtama(system, user, maxTokens, timeoutMs);
+  } catch (err) {
+    if (!emergentKey) throw err;
+    console.error("AI utama gagal, beralih ke kunci Emergent:", (err as Error).message.slice(0, 200));
+    return callEmergent(system, user, maxTokens, timeoutMs, emergentKey);
+  }
+}
+
+async function callEmergent(
+  system: string,
+  user: string,
+  maxTokens: number,
+  timeoutMs: number,
+  apiKey: string
+): Promise<string> {
+  const base = (process.env.EMERGENT_LLM_BASE || "https://integrations.emergentagent.com/llm").replace(/\/$/, "");
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Bearer " + apiKey },
+    body: JSON.stringify({
+      model: process.env.EMERGENT_LLM_MODEL || "gpt-5.4",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      max_completion_tokens: maxTokens * 2,
+    }),
+    signal: AbortSignal.timeout(timeoutMs),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(`EMERGENT_HTTP_${res.status}${detail ? ": " + detail.slice(0, 300) : ""}`);
+  }
+  const text = await readOpenAiContent(res);
+  if (!text.trim()) throw new Error("AI_EMPTY");
+  return text;
+}
+
+// Gemini utama, OpenAI cadangan, Claude terakhir
+async function callAiUtama(
   system: string,
   user: string,
   maxTokens: number,
@@ -458,4 +511,30 @@ export async function generateButirBatch(input: AiBatchInput): Promise<AiBatchDr
   });
   if (hasil.length === 0) throw new Error("AI_INCOMPLETE");
   return hasil;
+}
+
+export type LengkapiItem = { soal: string; materi: string; bentuk: string; kunci: string };
+
+const LENGKAPI_PROMPT = `Anda guru madrasah di Indonesia yang menyusun kisi-kisi. Untuk setiap butir soal yang diberikan, tuliskan indikator soal yang terukur (diawali "Peserta didik dapat ..." atau "Disajikan ..., peserta didik dapat ...") dan tentukan level kognitif C1 sampai C6 yang paling sesuai. Jangan mengubah soal. Tanpa emoji dan markdown.
+Balas HANYA dengan JSON valid, urutan sama dengan permintaan:
+{"butir":[{"indikator":"...","level":"C2"}]}`;
+
+export async function lengkapiIndikator(
+  ctx: { mapel: string; kelas: string },
+  items: LengkapiItem[]
+): Promise<{ indikator: string; level: string }[]> {
+  if (process.env.AI_USE_MOCK === "true") {
+    return items.map((it) => ({ indikator: `Peserta didik dapat menjawab soal tentang ${it.materi || "materi"}.`, level: "C2" }));
+  }
+  const lines = [`Mata pelajaran: ${ctx.mapel || "-"}`, `Kelas: ${ctx.kelas || "-"}`, ""];
+  items.forEach((it, i) =>
+    lines.push(`${i + 1}. [${BENTUK_LABEL[it.bentuk] ?? it.bentuk}] Materi: ${it.materi || "-"} | Soal: ${it.soal.slice(0, 600)} | Kunci: ${it.kunci.slice(0, 200)}`)
+  );
+  const content = await callAi(LENGKAPI_PROMPT, lines.join("\n"), 250 * items.length + 300, 90000);
+  const list = Array.isArray(extractJson(content).butir) ? (extractJson(content).butir as unknown[]) : [];
+  return items.map((_, i) => {
+    const e = (list[i] ?? {}) as Record<string, unknown>;
+    const lv = String(e.level ?? "").toUpperCase().match(/C[1-6]/);
+    return { indikator: String(e.indikator ?? "").trim(), level: lv ? lv[0] : "" };
+  });
 }

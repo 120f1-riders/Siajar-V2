@@ -16,3 +16,10 @@ Preview-only scaffolding: /app/frontend/package.json (runs next dev on 3000), /a
 - gemini-3.8-flash hangs >60s (high demand) so lite used by default. Claude key valid but account has no credit.
 - Restored typescript ^5 (next dev had auto-installed TS 7 which breaks next.config.ts).
 - Fonts: dokumen (cetak HTML, DOCX, XLSX) teks Indonesia Arial 12pt, teks Arab Traditional Arabic 18pt (DOCX: run terpisah + RTL/bidi; HTML: @font-face "Arab Soal" unicode-range + size-adjust 150%; XLSX: sel berisi Arab → Traditional Arabic 18). Kop/judul tetap ukuran semula.
+
+## Jun 2026 – Upload soal Excel
+- Panel "Upload Soal dari Excel" di editor paket: unduh template (GET /api/soal/template; kolom Bentuk, Level, Skor, Materi, Nilai Cinta & CP, Indikator, Butir Soal, Pilihan A–E, Kunci; dropdown + sheet Petunjuk), unggah .xlsx (POST /api/soal/import, isi sel dibaca sebagai teks, foto/.xls ditolak), pratinjau yang bisa diedit/hapus → simpan ke paket.
+- AI opsional melengkapi indikator/level kosong (lib/ai.ts lengkapiIndikator). Kunci Emergent (EMERGENT_LLM_KEY, gpt-5.4, .env.local) hanya cadangan untuk fitur ini bila Gemini/OpenAI/Claude gagal.
+- Fix: simpan dari pratinjau/AI yang gagal tidak lagi menggandakan butir. TypeScript dikembalikan ke ^5.
+- Backlog: verifikasi jalur cadangan Emergent saat kunci utama mati; dukung gambar soal dari Excel.
+- Jun 2026: Kunci Emergent kini cadangan terakhir untuk SEMUA fitur AI (callAi). Diverifikasi: saat OpenAI/ZyRouter gagal → Emergent menjawab. Catatan: ZyRouter key membalas 401 (perlu diperbarui user).

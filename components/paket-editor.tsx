@@ -23,6 +23,7 @@ import { statusInfo } from "@/lib/format";
 import { DriveExport } from "@/components/drive-export";
 import { AiGeneratorPanel } from "@/components/ai-generator-panel";
 import { SoalJadiForm } from "@/components/soal-jadi-form";
+import { ExcelImportPanel } from "@/components/excel-import-panel";
 
 export type EditorButir = {
   bentuk: string;
@@ -347,15 +348,13 @@ export function PaketEditor({
 
   async function simpanDariAi(baru: EditorButir[]): Promise<boolean> {
     const next = { ...form, butir: [...form.butir, ...baru].slice(0, 200) };
-    setForm(next);
     const ok = await persist(next);
     if (ok) {
+      setForm(next);
       setMessage({
         tone: "ok",
-        text: `${baru.length} soal dari AI disimpan ke paket. Semua butir masih bisa Anda edit di bawah.`,
+        text: `${baru.length} soal baru disimpan ke paket. Semua butir masih bisa Anda edit di bawah.`,
       });
-    } else {
-      setDirty(true);
     }
     return ok;
   }
@@ -661,6 +660,16 @@ export function PaketEditor({
       </section>
       {!readonly ? (
         <SoalJadiForm materiPaket={form.materi} onAdd={tambahSoalJadi} />
+      ) : null}
+
+      {!readonly ? (
+        <ExcelImportPanel
+          mapel={form.mapel}
+          kelas={form.kelas}
+          materiPaket={form.materi}
+          sisaSlot={200 - form.butir.length}
+          onSave={simpanDariAi}
+        />
       ) : null}
 
       {!readonly ? (
