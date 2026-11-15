@@ -108,13 +108,14 @@ export async function PUT(
   const now = new Date().toISOString();
 
   try {
-    await db.transaction(async (tx) => {
-      await tx.prepare(
+    const insertSql = `INSERT INTO butir (paket_id, nomor, bentuk, materi, acuan, indikator, level, hots, soal, opsi, kunci, skor)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+    await db.batch([
+      [
         `UPDATE paket SET mapel = ?, kelas = ?, semester = ?, tahun_ajaran = ?,
                 kurikulum = ?, jenis_penilaian = ?, alokasi_waktu = ?, materi = ?, petunjuk = ?,
                 cetak_kunci = ?, updated_at = ?
-          WHERE id = ?`
-      ).run(
+          WHERE id = ?`,
         mapel,
         kelas,
         body.semester === "Genap" ? "Genap" : "Ganjil",
@@ -126,15 +127,12 @@ export async function PUT(
         text(body.petunjuk, 4000),
         body.cetak_kunci ? 1 : 0,
         now,
-        id
-      );
-      await tx.prepare("DELETE FROM butir WHERE paket_id = ?").run(id);
-      const insert = tx.prepare(
-        `INSERT INTO butir (paket_id, nomor, bentuk, materi, acuan, indikator, level, hots, soal, opsi, kunci, skor)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      );
-      for (const item of preparedButir) {
-        await insert.run(
+        id,
+      ],
+      ["DELETE FROM butir WHERE paket_id = ?", id],
+      ...preparedButir.map(
+        (item): [string, ...(string | number)[]] => [
+          insertSql,
           id,
           item.nomor,
           item.bentuk,
@@ -146,10 +144,10 @@ export async function PUT(
           item.soal,
           item.opsi,
           item.kunci,
-          item.skor
-        );
-      }
-    });
+          item.skor,
+        ]
+      ),
+    ]);
   } catch (error) {
     console.error("Gagal menyimpan paket", error);
     return Response.json(

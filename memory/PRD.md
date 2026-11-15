@@ -23,3 +23,10 @@ Preview-only scaffolding: /app/frontend/package.json (runs next dev on 3000), /a
 - Fix: simpan dari pratinjau/AI yang gagal tidak lagi menggandakan butir. TypeScript dikembalikan ke ^5.
 - Backlog: verifikasi jalur cadangan Emergent saat kunci utama mati; dukung gambar soal dari Excel.
 - Jun 2026: Kunci Emergent kini cadangan terakhir untuk SEMUA fitur AI (callAi). Diverifikasi: saat OpenAI/ZyRouter gagal → Emergent menjawab. Catatan: ZyRouter key membalas 401 (perlu diperbarui user).
+# SIAJAR (Next.js 15 + Turso/libSQL)
+## 2026-06 Bug fix: edit soal gagal disimpan
+- Cause: PUT /api/paket/[id] used interactive transaction with one remote round-trip per butir (~150ms each on Turso) -> 40-50 butir took 7-10s+, timing out.
+- Fix: replaced with single atomic db.batch (UPDATE paket + DELETE butir + INSERT butir), ~1s.
+- Preview env fix: restored package.json/tsconfig/yarn.lock (typescript ^5) after auto-install of TS 7 broke Next 15 dev server.
+## Backlog
+- Verify end-to-end with a real guru account on deployed app.
