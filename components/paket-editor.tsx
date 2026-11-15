@@ -189,7 +189,10 @@ export function PaketEditor({
       });
       const hasil = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setMessage({ tone: "err", text: hasil.error ?? "Gagal menyimpan paket." });
+        setMessage({
+          tone: "err",
+          text: hasil.error ?? `Gagal menyimpan paket (kode ${res.status}). Silakan coba lagi.`,
+        });
         return false;
       }
       setDirty(false);
@@ -435,7 +438,9 @@ export function PaketEditor({
 
       {message ? (
         <div
-          className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+          role="status"
+          data-testid="paket-editor-message"
+          className={`sticky top-4 z-30 mb-4 rounded-xl border px-4 py-3 text-sm shadow-sm ${
             message.tone === "ok"
               ? "border-brand-200 bg-brand-50 text-brand-900"
               : "border-red-200 bg-red-50 text-red-800"
