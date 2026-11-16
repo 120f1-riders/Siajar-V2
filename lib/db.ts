@@ -55,10 +55,14 @@ export class Db {
 
   async batch(items: [string, ...Arg[]][]) {
     await this.ready;
-    await (this.runner as Client).batch(
-      items.map(([sql, ...args]) => ({ sql, args })),
-      "write"
-    );
+    const stmts = items.map(([sql, ...args]) => ({ sql, args }));
+    try {
+      await (this.runner as Client).batch(stmts, "write");
+    } catch (error) {
+      // Batch bersifat atomik, aman diulang sekali bila koneksi terputus.
+      console.error("Batch gagal, mencoba ulang sekali", error);
+      await (this.runner as Client).batch(stmts, "write");
+    }
   }
 
   async transaction<T>(fn: (tx: Db) => Promise<T>): Promise<T> {
@@ -238,8 +242,11 @@ function createDb(): Db {
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
   }
 
+  // HTTP (stateless) lebih andal daripada WebSocket di serverless.
   const client = createClient({
-    url: url ?? `file:${path.join(process.cwd(), "data", "siajar.db")}`,
+    url: url
+      ? url.replace(/^libsql:\/\//, "https://")
+      : `file:${path.join(process.cwd(), "data", "siajar.db")}`,
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
   const ready = init(client, local);

@@ -150,8 +150,9 @@ export async function PUT(
     ]);
   } catch (error) {
     console.error("Gagal menyimpan paket", error);
+    const code = (error as { code?: string })?.code ?? (error as Error)?.message ?? "";
     return Response.json(
-      { error: "Gagal menyimpan paket. Silakan coba lagi." },
+      { error: `Gagal menyimpan paket. Silakan coba lagi.${code ? ` (${String(code).slice(0, 120)})` : ""}` },
       { status: 500 }
     );
   }

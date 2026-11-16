@@ -14,3 +14,4 @@ tsconfig.tsbuildinfo
 
 .vercel
 .env*
+/public/siajar-*.zip
